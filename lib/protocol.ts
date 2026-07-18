@@ -12,12 +12,12 @@
  *
  * Namespaced via `Symbol.for` so duplicated copies of this package agree on symbol identity.
  */
-export const asyncInit: unique symbol = Symbol.for("lifecycle-ts.asyncInit")
+export const asyncInit: unique symbol = Symbol.for("async-init.asyncInit")
 
 /**
  * Global symbol marking an object as already disposed.
  */
-export const disposed: unique symbol = Symbol.for("lifecycle-ts.disposed")
+export const disposed: unique symbol = Symbol.for("async-init.disposed")
 
 /**
  * Ambient state made available to services during resolution and initialization.

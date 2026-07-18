@@ -620,6 +620,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"async-init@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "async-init@workspace:."
+  dependencies:
+    "@sister.software/oxfmt-config": "npm:^9.1.0"
+    "@sister.software/oxlint-config": "npm:^9.1.0"
+    "@sister.software/tsconfig": "npm:^9.0.0"
+    "@types/node": "npm:^25.9.0"
+    oxfmt: "npm:0.56.0"
+    oxlint: "npm:1.71.0"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:^4.1.6"
+  languageName: unknown
+  linkType: soft
+
 "chai@npm:^6.2.2":
   version: 6.2.2
   resolution: "chai@npm:6.2.2"
@@ -729,21 +744,6 @@ __metadata:
   checksum: 10/2ead327ef596042ef9c9ec5f236b316acfaedb87f4bb61b3c3d574fb2e9c8a04b67305e04733bde52c24d9622fdebd3270aadb632adfbf9cadef88fe30f479e5
   languageName: node
   linkType: hard
-
-"lifecycle-ts@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "lifecycle-ts@workspace:."
-  dependencies:
-    "@sister.software/oxfmt-config": "npm:^9.1.0"
-    "@sister.software/oxlint-config": "npm:^9.1.0"
-    "@sister.software/tsconfig": "npm:^9.0.0"
-    "@types/node": "npm:^25.9.0"
-    oxfmt: "npm:0.56.0"
-    oxlint: "npm:1.71.0"
-    typescript: "npm:^6.0.3"
-    vitest: "npm:^4.1.6"
-  languageName: unknown
-  linkType: soft
 
 "lightningcss-android-arm64@npm:1.32.0":
   version: 1.32.0

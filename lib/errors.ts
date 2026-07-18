@@ -3,11 +3,11 @@
  * @license MIT
  * @author Teffen Ellis, et al.
  *
- *   Error type shared by every lifecycle-ts layer.
+ *   Error type shared by every async-init layer.
  */
 
 /**
- * Machine-readable error codes raised by lifecycle-ts.
+ * Machine-readable error codes raised by async-init.
  */
 export const LifecycleErrorCode = {
 	NoResolver: "E_NO_RESOLVER",
@@ -22,7 +22,7 @@ export const LifecycleErrorCode = {
 export type LifecycleErrorCode = (typeof LifecycleErrorCode)[keyof typeof LifecycleErrorCode]
 
 /**
- * Error raised by lifecycle-ts. Inspect {@linkcode LifecycleError.code} to branch on the cause.
+ * Error raised by async-init. Inspect {@linkcode LifecycleError.code} to branch on the cause.
  */
 export class LifecycleError extends Error {
 	public readonly code: LifecycleErrorCode

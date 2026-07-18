@@ -1,11 +1,11 @@
-# lifecycle-ts
+# async-init
 
 Async construction and disposal lifecycle primitives — the missing symbol for constructing asynchronous things.
 
 ```bash
-yarn add lifecycle-ts
+yarn add async-init
 # or
-npm install lifecycle-ts
+npm install async-init
 ```
 
 ## The problem
@@ -14,7 +14,7 @@ npm install lifecycle-ts
 
 Most codebases patch around this with a `ready()` method the caller has to remember to await, or a factory function that duplicates the class's own fields. Both work until you need composition: an `await using` block, an `AsyncDisposableStack`, a container that resolves ten services in dependency order. Ad-hoc `ready()` conventions don't compose — every consumer has to know your particular flavor of "not ready yet," and a container has no symbol to detect it by.
 
-`lifecycle-ts` adds that symbol. Three layers, each usable on its own:
+`async-init` adds that symbol. Three layers, each usable on its own:
 
 1. **The protocol** — a symbol and two functions. No state, no dependencies.
 2. **`Service<T>`** — a lazy, awaitable handle around a resolver, for when you want deferred construction without a container.
@@ -25,7 +25,7 @@ Most codebases patch around this with a `ready()` method the caller has to remem
 `asyncInit` is the async complement to `Symbol.asyncDispose`: a symbol-keyed method a class implements to run setup after its constructor returns.
 
 ```ts
-import { asyncInit, construct, init } from "lifecycle-ts"
+import { asyncInit, construct, init } from "async-init"
 
 class Database {
 	public connected = false
@@ -52,7 +52,7 @@ Two guards round out the protocol: `isAsyncInitializable` and `isAsyncDisposable
 `Service<T>` wraps a resolver — an instance, a factory, or a zero-arg constructor — behind a handle that's awaitable and disposable. Nothing runs until the handle is awaited; the resolution is memoized, so concurrent awaiters share one in-flight promise instead of racing separate constructions.
 
 ```ts
-import { Service } from "lifecycle-ts"
+import { Service } from "async-init"
 
 class Greeter {
 	public planet = "world"
@@ -74,7 +74,7 @@ If the underlying instance implements the lifecycle protocol, `Service` calls `[
 `proxyService` goes one step further: it wraps a `Service<T>` in a proxy that exposes `T`'s own members directly, so you can call a method before the service has resolved — the call awaits resolution first, then dispatches. Methods return promises; plain properties become zero-argument thunks, since a property can't be read synchronously off something that isn't built yet.
 
 ```ts
-import { proxyService } from "lifecycle-ts"
+import { proxyService } from "async-init"
 
 const proxied = proxyService(new Service(Greeter))
 
@@ -89,7 +89,7 @@ await proxied.planet() // 'world' — a thunk, since `planet` isn't a method
 Tokens bind a runtime key to a phantom type, so `registry.get(token)` comes back typed without a manual cast:
 
 ```ts
-import { createToken, ServiceRegistry } from "lifecycle-ts"
+import { createToken, ServiceRegistry } from "async-init"
 
 class Logger {
 	public readonly lines: string[] = []
@@ -175,10 +175,10 @@ fromParent.value // 'from-parent' — untouched
 
 ## Type discipline
 
-`lifecycle-ts` compiles under `isolatedDeclarations` — every exported value, function, and class member carries an explicit type annotation, so declaration emit never depends on cross-file inference. It also compiles under `erasableSyntaxOnly`: no `enum`, no constructor parameter properties, nothing that requires more than stripping types to run. That's why the tests above use long-form field assignment instead of parameter properties, and why `LifecycleErrorCode` is a `const` object with a derived type instead of an `enum`.
+`async-init` compiles under `isolatedDeclarations` — every exported value, function, and class member carries an explicit type annotation, so declaration emit never depends on cross-file inference. It also compiles under `erasableSyntaxOnly`: no `enum`, no constructor parameter properties, nothing that requires more than stripping types to run. That's why the tests above use long-form field assignment instead of parameter properties, and why `LifecycleErrorCode` is a `const` object with a derived type instead of an `enum`.
 
 The practical effect: the package runs directly under `node`'s built-in type stripping. There's no build step between cloning the source and running it.
 
 ## License
 
-`lifecycle-ts` is licensed under the MIT license. See [LICENSE.md](./LICENSE.md) for the full text.
+`async-init` is licensed under the MIT license. See [LICENSE.md](./LICENSE.md) for the full text.

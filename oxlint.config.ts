@@ -2,7 +2,7 @@
  * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
- * @file oxlint configuration for lifecycle-ts.
+ * @file oxlint configuration for async-init.
  */
 
 import { createOxlintConfig } from "@sister.software/oxlint-config"

@@ -2,7 +2,7 @@
  * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
- * @file oxfmt configuration for lifecycle-ts.
+ * @file oxfmt configuration for async-init.
  */
 
 import { sisterSoftwareOxfmtConfig } from "@sister.software/oxfmt-config"
