@@ -17,11 +17,7 @@
 		"type": "git",
 		"url": "git+https://github.com/sister-software/lifecycle-ts.git"
 	},
-	"files": [
-		"out/**/*",
-		"README.md",
-		"LICENSE.md"
-	],
+	"files": ["out/index.d.ts", "out/index.d.ts.map", "out/index.js", "out/index.js.map", "out/lib/**/*", "README.md", "LICENSE.md"],
 	"type": "module",
 	"exports": {
 		"./package.json": "./package.json",
