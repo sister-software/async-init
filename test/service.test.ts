@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest"
 
-import { asyncInit, isDisposed } from "../lib/protocol.ts"
+import { asyncInit, isDisposed, markDisposed } from "../lib/protocol.ts"
 import type { LifecycleContext } from "../lib/protocol.ts"
 import { isServiceConstructor, Service } from "../lib/service.ts"
 
@@ -25,6 +25,21 @@ class Widget {
 
 /** Subclass with NOTHING own on its prototype — the inherited-disposable trap. */
 class InheritedWidget extends Widget {}
+
+/**
+ * Follows the README's own-dispose idiom: guard with `markDisposed` as the first line, then run cleanup. A `Service`
+ * must let this cleanup run — marking the instance disposed before invoking it (the pre-fix bug) would make the guard
+ * see itself as already disposed and bail before `disposeCount` is ever incremented.
+ */
+class SelfGuardingWidget {
+	public disposeCount = 0
+
+	public async [Symbol.asyncDispose](): Promise<void> {
+		if (!markDisposed(this)) return
+
+		this.disposeCount += 1
+	}
+}
 
 describe("isServiceConstructor", () => {
 	it("accepts classes, including subclasses with empty prototypes", () => {
@@ -146,6 +161,27 @@ describe("Service disposal", () => {
 
 		await expect(service.resolve()).rejects.toThrow("boom")
 		await expect(service[Symbol.asyncDispose]()).resolves.toBeUndefined()
+	})
+
+	it("runs a self-guarding instance's own cleanup — mark happens AFTER dispose is invoked, not before", async () => {
+		const widget = new SelfGuardingWidget()
+		const service = new Service(widget)
+
+		await service
+
+		await service[Symbol.asyncDispose]()
+
+		expect(widget.disposeCount).toBe(1)
+		expect(isDisposed(widget)).toBe(true)
+	})
+
+	it("resolve() after disposal rejects with E_DISPOSED", async () => {
+		const service = new Service(Widget)
+		await service
+
+		await service[Symbol.asyncDispose]()
+
+		await expect(service.resolve()).rejects.toMatchObject({ code: "E_DISPOSED" })
 	})
 
 	it("works with await using", async () => {

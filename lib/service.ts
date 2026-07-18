@@ -8,7 +8,7 @@
  */
 
 import { LifecycleError } from "./errors.ts"
-import { asyncInit, isAsyncDisposable, isAsyncInitializable, markDisposed } from "./protocol.ts"
+import { asyncInit, isAsyncDisposable, isAsyncInitializable, isDisposed, markDisposed } from "./protocol.ts"
 import type { LifecycleContext } from "./protocol.ts"
 
 /**
@@ -54,6 +54,8 @@ export class Service<T extends object> implements PromiseLike<T>, AsyncDisposabl
 	#context: LifecycleContext
 	#promise: Promise<T> | null = null
 	#instance: T | null = null
+	#disposed = false
+	#disposePromise: Promise<void> | null = null
 
 	constructor(resolver: ServiceResolver<T>, context?: LifecycleContext) {
 		this.#resolver = resolver
@@ -72,6 +74,10 @@ export class Service<T extends object> implements PromiseLike<T>, AsyncDisposabl
 	 * later call may retry.
 	 */
 	public resolve(): Promise<T> {
+		if (this.#disposed) {
+			return Promise.reject(new LifecycleError("E_DISPOSED", "The service has been disposed."))
+		}
+
 		this.#promise ??= this.#resolveUncached().then(
 			(instance) => {
 				this.#instance = instance
@@ -131,20 +137,35 @@ export class Service<T extends object> implements PromiseLike<T>, AsyncDisposabl
 	}
 
 	public async [Symbol.asyncDispose](): Promise<void> {
-		if (!this.#promise) return
+		const promise = this.#promise
+
+		if (!promise) {
+			this.#disposed = true
+
+			return
+		}
+
+		this.#disposePromise ??= this.#disposeInstance(promise)
+
+		return this.#disposePromise
+	}
+
+	async #disposeInstance(promise: Promise<T>): Promise<void> {
+		this.#disposed = true
 
 		let instance: T
 
 		try {
-			instance = await this.#promise
+			instance = await promise
 		} catch {
 			return
 		}
 
 		if (!isAsyncDisposable(instance)) return
 
-		if (!markDisposed(instance)) return
+		if (isDisposed(instance)) return
 
 		await instance[Symbol.asyncDispose]()
+		markDisposed(instance)
 	}
 }
