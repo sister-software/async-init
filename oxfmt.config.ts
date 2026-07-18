@@ -7,6 +7,8 @@
 
 import { sisterSoftwareOxfmtConfig } from "@sister.software/oxfmt-config"
 
-export default {
+const config: typeof sisterSoftwareOxfmtConfig = {
 	...sisterSoftwareOxfmtConfig,
 }
+
+export default config

@@ -6,7 +6,7 @@
 
 import { defineConfig } from "vitest/config"
 
-export default defineConfig({
+const config: ReturnType<typeof defineConfig> = defineConfig({
 	test: {
 		include: ["test/**/*.test.ts"],
 		typecheck: {
@@ -14,3 +14,5 @@ export default defineConfig({
 		},
 	},
 })
+
+export default config

@@ -7,7 +7,9 @@
 
 import { createOxlintConfig } from "@sister.software/oxlint-config"
 
-export default createOxlintConfig({
+const config: ReturnType<typeof createOxlintConfig> = createOxlintConfig({
 	copyrightHolder: "Sister Software",
 	spdxLicenseIdentifier: "MIT",
 })
+
+export default config
