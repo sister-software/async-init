@@ -1,0 +1,14 @@
+{
+	"extends": "@sister.software/tsconfig",
+	"compilerOptions": {
+		"forceConsistentCasingInFileNames": true,
+		"emitDeclarationOnly": false,
+		"composite": false,
+		"incremental": false,
+		"erasableSyntaxOnly": true,
+		"rewriteRelativeImportExtensions": true,
+		"allowJs": false,
+		"checkJs": false
+	},
+	"exclude": ["./out/**/*"]
+}

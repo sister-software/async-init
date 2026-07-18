@@ -1,0 +1,53 @@
+{
+	"name": "lifecycle-ts",
+	"version": "0.1.0",
+	"description": "Async construction and disposal lifecycle primitives — the missing symbol for constructing asynchronous things.",
+	"keywords": [
+		"lifecycle",
+		"async",
+		"disposable",
+		"AsyncDisposable",
+		"dependency-injection",
+		"service",
+		"registry"
+	],
+	"license": "MIT",
+	"author": "Teffen Ellis <teffen@sister.software>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/sister-software/lifecycle-ts.git"
+	},
+	"type": "module",
+	"engines": {
+		"node": ">=24"
+	},
+	"packageManager": "yarn@4.5.1",
+	"exports": {
+		"./package.json": "./package.json",
+		".": "./out/index.js"
+	},
+	"files": [
+		"out/**/*",
+		"README.md",
+		"LICENSE.md"
+	],
+	"scripts": {
+		"clean": "rm -rf out",
+		"compile": "tsc",
+		"check-types": "tsc --noEmit",
+		"lint": "oxlint && oxfmt --check .",
+		"format": "oxfmt .",
+		"test": "vitest run",
+		"test:types": "vitest run --typecheck"
+	},
+	"devDependencies": {
+		"@sister.software/oxfmt-config": "^9.1.0",
+		"@sister.software/oxlint-config": "^9.1.0",
+		"@sister.software/tsconfig": "^9.0.0",
+		"@types/node": "^25.9.0",
+		"oxfmt": "0.56.0",
+		"oxlint": "1.71.0",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.6"
+	}
+}
