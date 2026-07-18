@@ -51,6 +51,7 @@ describe("Service resolution", () => {
 	it("resolves a factory with context and runs asyncInit", async () => {
 		const service = new Service((context: LifecycleContext) => {
 			expect(context.signal).toBeInstanceOf(AbortSignal)
+
 			return new Widget()
 		})
 
@@ -71,6 +72,7 @@ describe("Service resolution", () => {
 		const service = new Service(async () => {
 			constructed += 1
 			await new Promise((resolve) => setTimeout(resolve, 10))
+
 			return new Widget()
 		})
 
@@ -85,7 +87,9 @@ describe("Service resolution", () => {
 		let attempts = 0
 		const service = new Service(() => {
 			attempts += 1
+
 			if (attempts === 1) throw new Error("first attempt fails")
+
 			return new Widget()
 		})
 
@@ -119,6 +123,7 @@ describe("Service disposal", () => {
 		let constructed = 0
 		const service = new Service(() => {
 			constructed += 1
+
 			return new Widget()
 		})
 

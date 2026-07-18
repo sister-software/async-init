@@ -3,13 +3,13 @@
 	"version": "0.1.0",
 	"description": "Async construction and disposal lifecycle primitives — the missing symbol for constructing asynchronous things.",
 	"keywords": [
-		"lifecycle",
-		"async",
-		"disposable",
 		"AsyncDisposable",
+		"async",
 		"dependency-injection",
-		"service",
-		"registry"
+		"disposable",
+		"lifecycle",
+		"registry",
+		"service"
 	],
 	"license": "MIT",
 	"author": "Teffen Ellis <teffen@sister.software>",
@@ -17,20 +17,16 @@
 		"type": "git",
 		"url": "git+https://github.com/sister-software/lifecycle-ts.git"
 	},
-	"type": "module",
-	"engines": {
-		"node": ">=24"
-	},
-	"packageManager": "yarn@4.5.1",
-	"exports": {
-		"./package.json": "./package.json",
-		".": "./out/index.js"
-	},
 	"files": [
 		"out/**/*",
 		"README.md",
 		"LICENSE.md"
 	],
+	"type": "module",
+	"exports": {
+		"./package.json": "./package.json",
+		".": "./out/index.js"
+	},
 	"scripts": {
 		"clean": "rm -rf out",
 		"compile": "tsc",
@@ -49,5 +45,9 @@
 		"oxlint": "1.71.0",
 		"typescript": "^6.0.3",
 		"vitest": "^4.1.6"
-	}
+	},
+	"engines": {
+		"node": ">=24"
+	},
+	"packageManager": "yarn@4.5.1"
 }

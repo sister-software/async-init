@@ -37,6 +37,7 @@ export function isServiceConstructor<T extends object>(input: unknown): input is
 	if (typeof input !== "function") return false
 
 	const prototype: unknown = (input as { prototype?: unknown }).prototype
+
 	if (!prototype || typeof prototype !== "object") return false
 
 	if (Function.prototype.toString.call(input).startsWith("class")) return true
@@ -141,6 +142,7 @@ export class Service<T extends object> implements PromiseLike<T>, AsyncDisposabl
 		}
 
 		if (!isAsyncDisposable(instance)) return
+
 		if (!markDisposed(instance)) return
 
 		await instance[Symbol.asyncDispose]()
