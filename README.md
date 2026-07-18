@@ -136,7 +136,11 @@ const indexer = await registry.get(IIndexer)
 
 ```ts
 class Value {
-	constructor(public value: string) {}
+	public readonly value: string
+
+	constructor(value: string) {
+		this.value = value
+	}
 
 	public async [Symbol.asyncDispose](): Promise<void> {}
 }
