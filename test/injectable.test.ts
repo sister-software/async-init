@@ -146,6 +146,24 @@ describe("injectable constructors", () => {
 		)
 	})
 
+	it("routes a factory with a stray non-token `dependencies` array as a plain resolver", async () => {
+		// A plain factory function that happens to carry a `dependencies` property whose elements don't look like
+		// tokens (no `description` string). `isInjectableConstructor` must reject this — it should be treated as an
+		// ordinary factory, not misdetected as an injectable constructor and passed through the DI machinery.
+		function createWidget(): { readonly label: string } {
+			return { label: "plain-widget" }
+		}
+		createWidget.dependencies = ["not-a-token"]
+
+		const IWidget = createToken<{ readonly label: string }>("widget")
+
+		await using registry = new ServiceRegistry()
+		registry.register(IWidget, createWidget as unknown as () => { readonly label: string })
+
+		const widget = await registry.get(IWidget)
+		expect(widget.label).toBe("plain-widget")
+	})
+
 	it("detects indirect cycles (a → b → c → a)", async () => {
 		const IA = createToken<object>("a")
 		const IB = createToken<object>("b")

@@ -91,6 +91,33 @@ describe("createChild", () => {
 		expect(disposeCount).toBe(1)
 	})
 
+	it("a disposed child's parent still tears down its own services exactly once", async () => {
+		let parentDisposeCount = 0
+		let childDisposeCount = 0
+
+		const parent = new ServiceRegistry()
+		parent.register(
+			IValue,
+			createValue("p", () => (parentDisposeCount += 1))
+		)
+		await parent.get(IValue).resolve()
+
+		const child = parent.createChild()
+		const IChildValue = createToken<AsyncDisposable>("child-value")
+		child.register(
+			IChildValue,
+			createValue("c", () => (childDisposeCount += 1))
+		)
+		await child.get(IChildValue).resolve()
+
+		await child.dispose()
+		expect(childDisposeCount).toBe(1)
+
+		await expect(parent.dispose()).resolves.toBeUndefined()
+		expect(parentDisposeCount).toBe(1)
+		expect(childDisposeCount).toBe(1)
+	})
+
 	it("child inherits parent onWarning unless overridden", async () => {
 		const parentWarnings: string[] = []
 		const childWarnings: string[] = []

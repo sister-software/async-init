@@ -133,4 +133,12 @@ describe("ServiceRegistry", () => {
 			expect.objectContaining({ code: "E_DISPOSED" })
 		)
 	})
+
+	it("refuses get() after disposal — E_DISPOSED, not E_UNRESOLVED_TOKEN", async () => {
+		const registry = new ServiceRegistry()
+		registry.register(ILogger, createTestLogger())
+		await registry.dispose()
+
+		expect(() => registry.get(ILogger)).toThrowError(expect.objectContaining({ code: "E_DISPOSED" }))
+	})
 })

@@ -41,11 +41,28 @@ export interface InjectableConstructor<T extends object, D extends readonly Serv
 
 /**
  * Type-predicate: a constructor carrying a static `dependencies` token array.
+ *
+ * Duck-typed: an element is accepted as a token if it's a non-null object with a string `description` — the same shape
+ * {@linkcode createToken} produces. A stray `dependencies` array on a plain factory function whose elements don't look
+ * like tokens (e.g. strings) fails this check, so the factory is routed as a plain resolver instead of misdetected as
+ * injectable.
  */
 export function isInjectableConstructor(
 	input: unknown
 ): input is InjectableConstructor<object, readonly ServiceToken<unknown>[]> {
-	return typeof input === "function" && Array.isArray((input as { dependencies?: unknown }).dependencies)
+	if (typeof input !== "function") return false
+
+	const candidates: unknown = (input as { dependencies?: unknown }).dependencies
+
+	return (
+		Array.isArray(candidates) &&
+		candidates.every(
+			(entry) =>
+				typeof entry === "object" &&
+				entry !== null &&
+				typeof (entry as { description?: unknown }).description === "string"
+		)
+	)
 }
 
 /**
@@ -58,8 +75,8 @@ export class ServiceRegistry implements AsyncDisposable {
 	#abortController = new AbortController()
 	#onWarning: ((message: string) => void) | undefined
 	#disposed = false
-	// eslint-disable-next-line no-unused-private-class-members
 	#parent: ServiceRegistry | null = null
+	#children = new Set<ServiceRegistry>()
 	#detachFromParent: (() => void) | null = null
 
 	constructor(options?: ServiceRegistryOptions) {
@@ -117,6 +134,8 @@ export class ServiceRegistry implements AsyncDisposable {
 	 * Look up a token. Throws {@linkcode LifecycleError} `E_UNRESOLVED_TOKEN` when absent.
 	 */
 	public get<T extends object>(token: ServiceToken<T>): Service<T> & ServiceProxy<T> {
+		this.#assertNotDisposed()
+
 		const found = this.#lookup(token)
 
 		if (!found) {
@@ -135,7 +154,15 @@ export class ServiceRegistry implements AsyncDisposable {
 
 		const child = new ServiceRegistry({ onWarning: options?.onWarning ?? this.#onWarning })
 		child.#parent = this
-		this.#stack.use(child)
+		this.#children.add(child)
+
+		const childRef = new WeakRef(child)
+
+		this.#stack.use({
+			async [Symbol.asyncDispose](): Promise<void> {
+				await childRef.deref()?.[Symbol.asyncDispose]()
+			},
+		})
 
 		const propagateAbort = (): void => {
 			child.#abortController.abort(this.signal.reason)
@@ -233,11 +260,17 @@ export class ServiceRegistry implements AsyncDisposable {
 
 		this.#disposed = true
 		this.#detachFromParent?.()
+
+		if (this.#parent) {
+			this.#parent.#children.delete(this)
+		}
+
 		this.#abortController.abort(new LifecycleError("E_DISPOSED", "The service registry is disposing."))
 
 		await this.#stack.disposeAsync()
 		this.#services.clear()
 		this.#dependencies.clear()
+		this.#children.clear()
 	}
 
 	/**
