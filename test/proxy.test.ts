@@ -59,4 +59,21 @@ describe("proxyService", () => {
 
 		expect(disposeCount).toBe(1)
 	})
+
+	it("delegates Object.prototype-named members to the instance, not the wrapper", async () => {
+		class Labeled {
+			public async [Symbol.asyncDispose](): Promise<void> {}
+
+			public toString(): string {
+				return "labeled!"
+			}
+		}
+
+		const proxied = proxyService(new Service(Labeled))
+
+		await expect(proxied.toString()).resolves.toBe("labeled!")
+
+		// The wrapper's own surface still wins where it must: awaiting goes through Service.then.
+		expect(await proxied).toBeInstanceOf(Labeled)
+	})
 })

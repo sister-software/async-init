@@ -8,7 +8,7 @@
  *   surface as explicit thunks, matching what the runtime returns.
  */
 
-import type { Service } from "./service.ts"
+import { Service } from "./service.ts"
 
 /**
  * The lazy view of `T` exposed by {@linkcode proxyService}: methods return promises; plain properties become
@@ -21,13 +21,14 @@ export type ServiceProxy<T> = {
 /**
  * Wrap a {@linkcode Service} so instance members can be invoked before resolution.
  *
- * Own `Service` members win over instance members and are bound to the unproxied target — `Service` uses private
- * fields, which throw when accessed through a proxy receiver.
+ * `Service.prototype`'s own members (except `constructor`) win over instance members and are bound to the unproxied
+ * target — `Service` uses private fields, which throw when accessed through a proxy receiver. Everything else —
+ * `Object.prototype` names included — delegates to the resolved instance.
  */
 export function proxyService<T extends object>(service: Service<T>): Service<T> & ServiceProxy<T> {
 	return new Proxy(service, {
 		get(target, property) {
-			if (property in target) {
+			if (property !== "constructor" && Object.hasOwn(Service.prototype, property)) {
 				const value: unknown = Reflect.get(target, property)
 
 				return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(target) : value
