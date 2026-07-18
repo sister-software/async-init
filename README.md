@@ -91,6 +91,16 @@ Tokens bind a runtime key to a phantom type, so `registry.get(token)` comes back
 ```ts
 import { createToken, ServiceRegistry } from "lifecycle-ts"
 
+class Logger {
+	public readonly lines: string[] = []
+
+	public log(line: string): void {
+		this.lines.push(line)
+	}
+
+	public async [Symbol.asyncDispose](): Promise<void> {}
+}
+
 const ILogger = createToken<Logger>("logger")
 
 await using registry = new ServiceRegistry()
@@ -125,13 +135,27 @@ const indexer = await registry.get(IIndexer)
 `registry.createChild()` opens a scope that falls back to its parent on lookup, lets a child registration shadow a parent one, and chains abort signals downward. Disposing a registry disposes its children first (LIFO), then its own services, through an internal `AsyncDisposableStack` — which is also what makes `await using registry` do the right thing at scope exit.
 
 ```ts
+class Value {
+	constructor(public value: string) {}
+
+	public async [Symbol.asyncDispose](): Promise<void> {}
+}
+
+const IValue = createToken<Value>("value")
+
 await using parent = new ServiceRegistry()
-parent.register(IValue, createValue("from-parent"))
+parent.register(IValue, new Value("from-parent"))
 
 const child = parent.createChild()
-child.register(IValue, createValue("from-child"))
 
-const fromChild = await child.get(IValue)
+// Lookups fall back to the parent chain...
+const shared = await child.get(IValue)
+
+// ...and a child registration shadows the parent's.
+const scoped = parent.createChild()
+scoped.register(IValue, new Value("from-child"))
+
+const fromChild = await scoped.get(IValue)
 const fromParent = await parent.get(IValue)
 
 fromChild.value // 'from-child' — shadowed
