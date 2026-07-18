@@ -58,6 +58,9 @@ export class ServiceRegistry implements AsyncDisposable {
 	#abortController = new AbortController()
 	#onWarning: ((message: string) => void) | undefined
 	#disposed = false
+	// eslint-disable-next-line no-unused-private-class-members
+	#parent: ServiceRegistry | null = null
+	#detachFromParent: (() => void) | null = null
 
 	constructor(options?: ServiceRegistryOptions) {
 		this.#onWarning = options?.onWarning
@@ -123,8 +126,37 @@ export class ServiceRegistry implements AsyncDisposable {
 		return found as unknown as Service<T> & ServiceProxy<T>
 	}
 
+	/**
+	 * Create a child scope. Lookups fall back to this registry; disposal of this registry disposes children first (LIFO);
+	 * aborts chain down. A child disposed on its own unlinks and is skipped during parent teardown.
+	 */
+	public createChild(options?: ServiceRegistryOptions): ServiceRegistry {
+		this.#assertNotDisposed()
+
+		const child = new ServiceRegistry({ onWarning: options?.onWarning ?? this.#onWarning })
+		child.#parent = this
+		this.#stack.use(child)
+
+		const propagateAbort = (): void => {
+			child.#abortController.abort(this.signal.reason)
+		}
+
+		this.signal.addEventListener("abort", propagateAbort, { once: true })
+		child.#detachFromParent = (): void => {
+			this.signal.removeEventListener("abort", propagateAbort)
+		}
+
+		return child
+	}
+
 	#lookup(token: ServiceToken<unknown>): (Service<object> & ServiceProxy<object>) | null {
-		return this.#services.get(token) ?? null
+		const local = this.#services.get(token)
+
+		if (local) return local
+
+		if (this.#parent) return this.#parent.#lookup(token)
+
+		return null
 	}
 
 	#createInjectableFactory<T extends object>(
@@ -154,7 +186,13 @@ export class ServiceRegistry implements AsyncDisposable {
 	}
 
 	#dependenciesOf(token: ServiceToken<unknown>): readonly ServiceToken<unknown>[] {
-		return this.#dependencies.get(token) ?? []
+		const local = this.#dependencies.get(token)
+
+		if (local) return local
+
+		if (this.#parent) return this.#parent.#dependenciesOf(token)
+
+		return []
 	}
 
 	/**
@@ -191,23 +229,25 @@ export class ServiceRegistry implements AsyncDisposable {
 	}
 
 	public async [Symbol.asyncDispose](): Promise<void> {
-		if (this.#disposed) {
-			this.#onWarning?.("Service registry already disposed.")
-
-			return
-		}
+		if (this.#disposed) return
 
 		this.#disposed = true
+		this.#detachFromParent?.()
 		this.#abortController.abort(new LifecycleError("E_DISPOSED", "The service registry is disposing."))
 
 		await this.#stack.disposeAsync()
 		this.#services.clear()
+		this.#dependencies.clear()
 	}
 
 	/**
-	 * Alias for `[Symbol.asyncDispose]()`.
+	 * Alias for `[Symbol.asyncDispose]()`. Warns (via `onWarning`) on repeat calls.
 	 */
 	public dispose(): Promise<void> {
+		if (this.#disposed) {
+			this.#onWarning?.("Service registry already disposed.")
+		}
+
 		return this[Symbol.asyncDispose]()
 	}
 }
