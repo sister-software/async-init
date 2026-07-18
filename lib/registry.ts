@@ -23,10 +23,37 @@ export interface ServiceRegistryOptions {
 }
 
 /**
+ * Maps a tuple of tokens to the tuple of instance types they carry.
+ */
+export type TokenInstances<D extends readonly ServiceToken<unknown>[]> = {
+	[K in keyof D]: D[K] extends ServiceToken<infer T> ? T : never
+}
+
+/**
+ * A class declaring its dependencies as a static token tuple. The constructor signature must match the token tuple — a
+ * mismatch is a compile error. Dependencies are resolved AND initialized before construction, so the constructor body
+ * may use them freely.
+ */
+export interface InjectableConstructor<T extends object, D extends readonly ServiceToken<unknown>[]> {
+	readonly dependencies: D
+	new (...args: TokenInstances<D>): T
+}
+
+/**
+ * Type-predicate: a constructor carrying a static `dependencies` token array.
+ */
+export function isInjectableConstructor(
+	input: unknown
+): input is InjectableConstructor<object, readonly ServiceToken<unknown>[]> {
+	return typeof input === "function" && Array.isArray((input as { dependencies?: unknown }).dependencies)
+}
+
+/**
  * A scoped, disposable service container. Fully optional — every service works without one.
  */
 export class ServiceRegistry implements AsyncDisposable {
 	#services = new Map<ServiceToken<unknown>, Service<object> & ServiceProxy<object>>()
+	#dependencies = new Map<ServiceToken<unknown>, readonly ServiceToken<unknown>[]>()
 	#stack = new AsyncDisposableStack()
 	#abortController = new AbortController()
 	#onWarning: ((message: string) => void) | undefined
@@ -47,9 +74,14 @@ export class ServiceRegistry implements AsyncDisposable {
 	 * Register a resolver under a token. Records the service for disposal immediately — registration, not first-await, is
 	 * what enters it into the lifecycle.
 	 */
+	public register<T extends object, const D extends readonly ServiceToken<unknown>[]>(
+		token: ServiceToken<T>,
+		resolver: InjectableConstructor<T, D>
+	): Service<T> & ServiceProxy<T>
+	public register<T extends object>(token: ServiceToken<T>, resolver: ServiceResolver<T>): Service<T> & ServiceProxy<T>
 	public register<T extends object>(
 		token: ServiceToken<T>,
-		resolver: ServiceResolver<T>
+		resolver: ServiceResolver<T> | InjectableConstructor<T, readonly ServiceToken<unknown>[]>
 	): Service<T> & ServiceProxy<T> {
 		this.#assertNotDisposed()
 
@@ -57,7 +89,19 @@ export class ServiceRegistry implements AsyncDisposable {
 			throw new LifecycleError("E_DUPLICATE_TOKEN", `A service is already registered for token "${token.description}".`)
 		}
 
-		const service = new Service<T>(resolver, { signal: this.signal })
+		let effectiveResolver: ServiceResolver<T>
+
+		if (isInjectableConstructor(resolver)) {
+			this.#dependencies.set(token, resolver.dependencies)
+			effectiveResolver = this.#createInjectableFactory(
+				token,
+				resolver as InjectableConstructor<T, readonly ServiceToken<unknown>[]>
+			)
+		} else {
+			effectiveResolver = resolver
+		}
+
+		const service = new Service<T>(effectiveResolver, { signal: this.signal })
 		this.#stack.use(service)
 
 		const proxied = proxyService(service)
@@ -81,6 +125,63 @@ export class ServiceRegistry implements AsyncDisposable {
 
 	#lookup(token: ServiceToken<unknown>): (Service<object> & ServiceProxy<object>) | null {
 		return this.#services.get(token) ?? null
+	}
+
+	#createInjectableFactory<T extends object>(
+		token: ServiceToken<T>,
+		Injectable: InjectableConstructor<T, readonly ServiceToken<unknown>[]>
+	): ServiceResolver<T> {
+		return async (): Promise<T> => {
+			this.#assertAcyclic(token)
+
+			const instances = await Promise.all(
+				Injectable.dependencies.map((dependency) => {
+					const dependencyService = this.#lookup(dependency)
+
+					if (!dependencyService) {
+						throw new LifecycleError(
+							"E_MISSING_DEPENDENCY",
+							`"${token.description}" requires "${dependency.description}", which is not registered.`
+						)
+					}
+
+					return dependencyService.resolve()
+				})
+			)
+
+			return new Injectable(...(instances as TokenInstances<readonly ServiceToken<unknown>[]>))
+		}
+	}
+
+	#dependenciesOf(token: ServiceToken<unknown>): readonly ServiceToken<unknown>[] {
+		return this.#dependencies.get(token) ?? []
+	}
+
+	/**
+	 * Walk the statically declared dependency graph looking for a path back to `root`.
+	 *
+	 * Static analysis on declared token tuples — deterministic, immune to async interleaving. Cycles hidden inside opaque
+	 * factory resolvers cannot be detected (they hang instead); that limitation is documented in the README.
+	 */
+	#assertAcyclic(root: ServiceToken<unknown>): void {
+		const visited = new Set<ServiceToken<unknown>>()
+
+		const visit = (token: ServiceToken<unknown>, path: readonly ServiceToken<unknown>[]): void => {
+			for (const dependency of this.#dependenciesOf(token)) {
+				if (dependency === root) {
+					const cycle = [...path, dependency].map((entry) => entry.description).join(" → ")
+
+					throw new LifecycleError("E_DEPENDENCY_CYCLE", `Dependency cycle detected: ${cycle}`)
+				}
+
+				if (visited.has(dependency)) continue
+
+				visited.add(dependency)
+				visit(dependency, [...path, dependency])
+			}
+		}
+
+		visit(root, [root])
 	}
 
 	#assertNotDisposed(): void {
