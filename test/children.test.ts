@@ -4,6 +4,9 @@
  * @author Teffen Ellis, et al.
  */
 
+import { setFlagsFromString } from "node:v8"
+import { runInNewContext } from "node:vm"
+
 import { describe, expect, it } from "vitest"
 
 import { ServiceRegistry } from "../lib/registry.ts"
@@ -136,5 +139,40 @@ describe("createChild", () => {
 		expect(parentWarnings).toHaveLength(1)
 
 		await parent.dispose()
+	})
+
+	it("lets a disposed child and the services it held be collected while the parent lives", async () => {
+		setFlagsFromString("--expose-gc")
+
+		const collect = runInNewContext("gc") as () => void
+		await using parent = new ServiceRegistry()
+		const payloads: Array<WeakRef<object>> = []
+
+		// One unit of work in a long-lived parent, shaped as a caller builds one: a closure over the child and the
+		// service it read, disposed through that closure.
+		async function openAndClose(index: number): Promise<void> {
+			const child = parent.createChild()
+			const payload = createValue(`generation ${index}`)
+
+			payloads.push(new WeakRef(payload))
+			child.register(IValue, payload)
+			await child.get(IValue)
+
+			const generation = {
+				read: () => payload.value,
+				[Symbol.asyncDispose]: () => child[Symbol.asyncDispose](),
+			}
+
+			await generation[Symbol.asyncDispose]()
+		}
+
+		for (let index = 0; index < 3; index++) {
+			await openAndClose(index)
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 0))
+		collect()
+
+		expect(payloads.map((ref) => ref.deref())).toEqual([undefined, undefined, undefined])
 	})
 })

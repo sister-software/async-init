@@ -156,16 +156,17 @@ export class ServiceRegistry implements AsyncDisposable {
 		child.#parent = this
 		this.#children.add(child)
 
+		// The closures below share one context, and the parent's signal holds the listener for as long as the child
+		// is live. They reach the child only through a weak reference, so once the child disposes and leaves
+		// `#children`, nothing the parent holds keeps the child or the services it resolved.
 		const childRef = new WeakRef(child)
 
-		this.#stack.use({
-			async [Symbol.asyncDispose](): Promise<void> {
-				await childRef.deref()?.[Symbol.asyncDispose]()
-			},
-		})
-
 		const propagateAbort = (): void => {
-			child.#abortController.abort(this.signal.reason)
+			const live = childRef.deref()
+
+			if (live) {
+				live.#abortController.abort(this.signal.reason)
+			}
 		}
 
 		this.signal.addEventListener("abort", propagateAbort, { once: true })
@@ -267,7 +268,17 @@ export class ServiceRegistry implements AsyncDisposable {
 
 		this.#abortController.abort(new LifecycleError("E_DISPOSED", "The service registry is disposing."))
 
-		await this.#stack.disposeAsync()
+		// Children dispose first, newest first, then this registry's own services in reverse registration order. One
+		// stack runs both, so a failure in either is aggregated as SuppressedError rather than stopping the rest.
+		const teardown = new AsyncDisposableStack()
+
+		teardown.use(this.#stack)
+
+		for (const child of this.#children) {
+			teardown.use(child)
+		}
+
+		await teardown.disposeAsync()
 		this.#services.clear()
 		this.#dependencies.clear()
 		this.#children.clear()
