@@ -1,20 +1,23 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
+ * @copyright Sister Software
+ * Quick tour:
+ * - Build a tiny service registry.
+ * - Auto-clean resources with `await using`.
+ * - Keep strong types with tokens (`get` needs no casts).
+ * - Use interface-only services (no class required).
  *
- *   Layer 3 — ServiceRegistry: token-keyed lookup with typed results, and LIFO teardown
- *   through `await using`. Tokens carry a phantom type, so `get` needs no casts — and an
- *   interface-typed service needs no class at all.
+ * Run from a clone:
+ * - `node examples/03-registry.ts`
  *
- *   Run from a clone: `node examples/03-registry.ts`
- *
- *   In your own project, import from "async-init" instead of the relative path.
+ * In your app:
+ * - Import from "async-init" (not this relative path).
  */
 
 import { asyncInit, createToken, ServiceRegistry } from "async-init"
 
-// A service typed purely by interface — no class required.
+// Interface-only service type. No class needed.
 interface Clock extends AsyncDisposable {
 	now(): number
 }
@@ -42,7 +45,7 @@ const IAuditLog = createToken<AuditLog>("audit-log")
 {
 	await using registry = new ServiceRegistry()
 
-	// Register a pre-built instance...
+	// Option A: register an existing instance.
 	registry.register(IClock, {
 		now: () => Date.now(),
 		async [Symbol.asyncDispose](): Promise<void> {
@@ -50,12 +53,15 @@ const IAuditLog = createToken<AuditLog>("audit-log")
 		},
 	})
 
-	// ...or a constructor — resolution is lazy either way.
+	// Option B: register a constructor.
+	// Both options are resolved lazily.
 	registry.register(IAuditLog, AuditLog)
 
-	const clock = await registry.get(IClock) // typed Clock — no cast
+	const clock = await registry.get(IClock) // Typed as Clock. No cast.
 	const log = await registry.get(IAuditLog)
 
 	log.record(`started at ${clock.now()}`)
 }
-// Scope exit disposes in LIFO order: "audit log flushed 1 record(s)", then "clock stopped".
+// On scope exit, disposal is LIFO:
+// 1) "audit log flushed 1 record(s)"
+// 2) "clock stopped"

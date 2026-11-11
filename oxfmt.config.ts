@@ -1,8 +1,8 @@
 /**
- * @copyright Sister Software
  * @license MIT
+ * @file Oxfmt configuration for async-init.
  * @author Teffen Ellis, et al.
- * @file oxfmt configuration for async-init.
+ * @copyright Sister Software
  */
 
 import { sisterSoftwareOxfmtConfig } from "@sister.software/oxfmt-config"

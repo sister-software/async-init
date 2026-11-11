@@ -1,40 +1,37 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
- *
- *   The lifecycle protocol: symbols for asynchronous construction and disposal marking, plus
- *   prototype-chain-aware guards. Zero runtime state — usable without any other layer.
+ * @copyright Sister Software
+ * Quick utilities for async init/dispose checks.
+ * No runtime state. Works standalone.
  */
 
 /**
- * Global symbol for asynchronous construction — the async complement to `Symbol.asyncDispose`.
- *
- * Namespaced via `Symbol.for` so duplicated copies of this package agree on symbol identity.
+ * Symbol used for async initialization. Global via `Symbol.for(...)` so multiple package copies match.
  */
 export const asyncInit: unique symbol = Symbol.for("async-init.asyncInit")
 
 /**
- * Global symbol marking an object as already disposed.
+ * Symbol flag: object is already disposed.
  */
 export const disposed: unique symbol = Symbol.for("async-init.disposed")
 
 /**
- * Ambient state made available to services during resolution and initialization.
+ * Context passed during setup.
  */
 export interface LifecycleContext {
 	readonly signal: AbortSignal
 }
 
 /**
- * An object which can be further constructed asynchronously after its synchronous constructor runs.
+ * Type for objects with async setup after `new`.
  */
 export interface AsyncInitializable {
 	[asyncInit](context?: LifecycleContext): Promise<void>
 }
 
 /**
- * Type-predicate: does `input` implement `AsyncDisposable`? Walks the prototype chain.
+ * Check: does `input` have `AsyncDisposable` behavior? Includes prototype chain.
  */
 export function isAsyncDisposable(input: unknown): input is AsyncDisposable {
 	if (!input || (typeof input !== "object" && typeof input !== "function")) return false
@@ -43,7 +40,7 @@ export function isAsyncDisposable(input: unknown): input is AsyncDisposable {
 }
 
 /**
- * Type-predicate: does `input` implement {@linkcode AsyncInitializable}? Walks the prototype chain.
+ * Check: does `input` have async-init behavior? Includes prototype chain.
  */
 export function isAsyncInitializable(input: unknown): input is AsyncInitializable {
 	if (!input || (typeof input !== "object" && typeof input !== "function")) return false
@@ -52,14 +49,14 @@ export function isAsyncInitializable(input: unknown): input is AsyncInitializabl
 }
 
 /**
- * Has `input` been marked disposed via {@linkcode markDisposed}?
+ * Check whether `input` is marked disposed.
  */
 export function isDisposed(input: object): boolean {
 	return disposed in input
 }
 
 /**
- * Mark `input` as disposed. Returns false — without re-marking — if it already was.
+ * Mark `input` as disposed. Returns `false` if it was already marked.
  */
 export function markDisposed(input: object): boolean {
 	if (disposed in input) return false
@@ -70,7 +67,7 @@ export function markDisposed(input: object): boolean {
 }
 
 /**
- * Await `instance`'s {@linkcode asyncInit} method and return the same instance.
+ * Run async init, then return the same instance.
  */
 export async function init<T extends AsyncInitializable>(instance: T, context?: LifecycleContext): Promise<T> {
 	await instance[asyncInit](context)
@@ -79,7 +76,7 @@ export async function init<T extends AsyncInitializable>(instance: T, context?: 
 }
 
 /**
- * `new` + {@linkcode init} in one call. Constructor arguments are fully typed.
+ * Create + init in one call. Constructor args stay fully typed.
  */
 export async function construct<A extends readonly unknown[], T extends AsyncInitializable>(
 	Ctor: new (...args: A) => T,

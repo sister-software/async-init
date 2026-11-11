@@ -1,16 +1,21 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
+ * @copyright Sister Software
  *
- *   Dependency injection without decorators: a class declares its dependencies as a
- *   static token tuple, and the registry resolves AND initializes each one before the
- *   constructor body runs — so the constructor can use them as plain values. Signature
- *   mismatches between the tuple and the constructor are compile errors.
+ * Quick demo: dependency injection with async init.
  *
- *   Run from a clone: `node examples/04-dependency-injection.ts`
+ * How it works:
+ * - Each class lists dependencies as a token tuple.
+ * - The registry resolves + initializes them before constructor code runs.
+ * - Constructors get ready-to-use values.
+ * - Tuple/constructor mismatches fail at compile time.
  *
- *   In your own project, import from "async-init" instead of the relative path.
+ * Run from a clone:
+ * - `node examples/04-dependency-injection.ts`
+ *
+ * In your own project:
+ * - Import from "async-init" (not this relative path).
  */
 
 import { asyncInit, createToken, LifecycleError, ServiceRegistry } from "async-init"
@@ -31,7 +36,7 @@ class Database {
 	readonly #url: string
 
 	constructor(config: Config) {
-		// The dependency is fully resolved and initialized right here.
+		// `config` is already resolved + initialized here.
 		this.#url = config.databaseURL
 	}
 
@@ -52,7 +57,7 @@ class UserRepository {
 	public static readonly dependencies = [IDatabase] as const
 
 	constructor(db: Database) {
-		// Even transitive dependencies are ready — `db` connected before we were built.
+		// Transitive deps are ready too: `db` connected before this constructor runs.
 		console.log("repository created; db connected?", db.connected)
 	}
 
@@ -64,7 +69,7 @@ const IUserRepository = createToken<UserRepository>("user-repository")
 {
 	await using registry = new ServiceRegistry()
 
-	// Registration order doesn't matter — resolution follows the declared graph.
+	// Order does not matter. Resolution follows the dependency graph.
 	registry.register(IUserRepository, UserRepository)
 	registry.register(IDatabase, Database)
 	registry.register(IConfig, Config)
@@ -72,11 +77,11 @@ const IUserRepository = createToken<UserRepository>("user-repository")
 	await registry.get(IUserRepository)
 }
 
-// Failure modes are typed errors, not mysteries:
+// Failure mode demo: typed error (clear + debuggable).
 {
 	await using registry = new ServiceRegistry()
 
-	// Register the database — but nobody registers IConfig.
+	// `IConfig` is intentionally missing.
 	registry.register(IDatabase, Database)
 
 	try {
@@ -84,7 +89,8 @@ const IUserRepository = createToken<UserRepository>("user-repository")
 	} catch (error) {
 		if (error instanceof LifecycleError) {
 			console.log(`${error.code}: ${error.message}`)
-			// E_MISSING_DEPENDENCY: "database" requires "config", which is not registered.
+			// Expected: E_MISSING_DEPENDENCY
+			// Meaning: "database" needs "config", but "config" was not registered.
 		}
 	}
 }

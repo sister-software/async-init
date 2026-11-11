@@ -1,10 +1,8 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
- *
- *   Service<T>: a lazy, awaitable, disposable handle around a resolver. Usable standalone —
- *   the registry layer builds on this but is never required.
+ * @copyright Sister Software
+ *   The registry layer builds on this but is never required.
  */
 
 import { LifecycleError } from "#errors"

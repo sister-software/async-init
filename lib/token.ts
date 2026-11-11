@@ -1,12 +1,12 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
- *
- *   Service tokens: runtime keys married to interface types. A token's type parameter is
- *   phantom — it exists only at the type level, giving full inference at registry call sites.
+ * @copyright Sister Software
  */
 
+/**
+ * Phantom type marker for service tokens
+ */
 declare const serviceTokenBrand: unique symbol
 
 /**

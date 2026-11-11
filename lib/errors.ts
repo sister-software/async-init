@@ -1,9 +1,7 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
- *
- *   Error type shared by every async-init layer.
+ * @copyright Sister Software
  */
 
 /**

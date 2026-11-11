@@ -1,11 +1,13 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
+ * @copyright Sister Software
  *
- *   ServiceRegistry: an optional, instantiable, token-keyed container over Service<T> handles.
- *   Backed by AsyncDisposableStack — LIFO disposal with SuppressedError aggregation. Disposal
- *   aborts the registry signal first so in-flight resolvers can bail.
+ * Service registry with async lifecycle management.
+ *
+ * - Uses AsyncDisposableStack (LIFO cleanup)
+ * - Aggregates cleanup failures via SuppressedError
+ * - Aborts registry signal before disposal
  */
 
 import { LifecycleError } from "#errors"
@@ -15,22 +17,23 @@ import type { ServiceToken } from "#token"
 
 export interface ServiceRegistryOptions {
 	/**
-	 * The registry's only logging hook — silent by default.
+	 * Optional warning logger. Default: no logging.
 	 */
 	onWarning?: (message: string) => void
 }
 
 /**
- * Maps a tuple of tokens to the tuple of instance types they carry.
+ * Convert token tuple -> instance tuple.
  */
 export type TokenInstances<D extends readonly ServiceToken<unknown>[]> = {
 	[K in keyof D]: D[K] extends ServiceToken<infer T> ? T : never
 }
 
 /**
- * A class declaring its dependencies as a static token tuple. The constructor signature must match the token tuple — a
- * mismatch is a compile error. Dependencies are resolved AND initialized before construction, so the constructor body
- * may use them freely.
+ * Class with static `dependencies` token tuple.
+ *
+ * - Constructor args must match dependency order/types
+ * - Dependencies are resolved before `new`
  */
 export interface InjectableConstructor<T extends object, D extends readonly ServiceToken<unknown>[]> {
 	readonly dependencies: D
@@ -38,12 +41,17 @@ export interface InjectableConstructor<T extends object, D extends readonly Serv
 }
 
 /**
- * Type-predicate: a constructor carrying a static `dependencies` token array.
+ * True when input looks like an injectable constructor.
  *
- * Duck-typed: an element is accepted as a token if it's a non-null object with a string `description` — the same shape
- * {@linkcode createToken} produces. A stray `dependencies` array on a plain factory function whose elements don't look
- * like tokens (e.g. strings) fails this check, so the factory is routed as a plain resolver instead of misdetected as
- * injectable.
+ * Check:
+ *
+ * - Input is a function
+ * - `dependencies` is an array
+ * - Each entry is an object with string `description`
+ *
+ * Why duck-type?
+ *
+ * - Avoid misclassifying plain factory functions.
  */
 export function isInjectableConstructor(
 	input: unknown
@@ -64,7 +72,7 @@ export function isInjectableConstructor(
 }
 
 /**
- * A scoped, disposable service container. Fully optional — every service works without one.
+ * Scoped, disposable service container. Optional: services can still exist without a registry.
  */
 export class ServiceRegistry implements AsyncDisposable {
 	#services = new Map<ServiceToken<unknown>, Service<object> & ServiceProxy<object>>()
@@ -82,15 +90,19 @@ export class ServiceRegistry implements AsyncDisposable {
 	}
 
 	/**
-	 * Aborted when the registry disposes, before any service disposal runs.
+	 * Aborts when registry starts disposing. Happens before service cleanup.
 	 */
 	public get signal(): AbortSignal {
 		return this.#abortController.signal
 	}
 
 	/**
-	 * Register a resolver under a token. Records the service for disposal immediately — registration, not first-await, is
-	 * what enters it into the lifecycle.
+	 * Register a resolver under a token.
+	 *
+	 * Important:
+	 *
+	 * - Service is added to disposal lifecycle at registration time
+	 * - Not delayed until first resolve/await
 	 */
 	public register<T extends object, const D extends readonly ServiceToken<unknown>[]>(
 		token: ServiceToken<T>,
@@ -111,6 +123,7 @@ export class ServiceRegistry implements AsyncDisposable {
 
 		if (isInjectableConstructor(resolver)) {
 			this.#dependencies.set(token, resolver.dependencies)
+
 			effectiveResolver = this.#createInjectableFactory(
 				token,
 				resolver as InjectableConstructor<T, readonly ServiceToken<unknown>[]>
@@ -129,7 +142,7 @@ export class ServiceRegistry implements AsyncDisposable {
 	}
 
 	/**
-	 * Look up a token. Throws {@linkcode LifecycleError} `E_UNRESOLVED_TOKEN` when absent.
+	 * Get service by token. Throws `E_UNRESOLVED_TOKEN` if missing.
 	 */
 	public get<T extends object>(token: ServiceToken<T>): Service<T> & ServiceProxy<T> {
 		this.#assertNotDisposed()
@@ -144,8 +157,14 @@ export class ServiceRegistry implements AsyncDisposable {
 	}
 
 	/**
-	 * Create a child scope. Lookups fall back to this registry; disposal of this registry disposes children first (LIFO);
-	 * aborts chain down. A child disposed on its own unlinks and is skipped during parent teardown.
+	 * Create child registry scope.
+	 *
+	 * Behavior:
+	 *
+	 * - Child lookup falls back to parent
+	 * - Parent abort propagates to child
+	 * - Parent disposal disposes children first (LIFO)
+	 * - Self-disposed child unlinks from parent
 	 */
 	public createChild(options?: ServiceRegistryOptions): ServiceRegistry {
 		this.#assertNotDisposed()
@@ -154,9 +173,8 @@ export class ServiceRegistry implements AsyncDisposable {
 		child.#parent = this
 		this.#children.add(child)
 
-		// The closures below share one context, and the parent's signal holds the listener for as long as the child
-		// is live. They reach the child only through a weak reference, so once the child disposes and leaves
-		// `#children`, nothing the parent holds keeps the child or the services it resolved.
+		// Keep only a weak reference to child in abort listener.
+		// After child disposal + unlink, parent won't retain child/services.
 		const childRef = new WeakRef(child)
 
 		const propagateAbort = (): void => {
@@ -168,6 +186,7 @@ export class ServiceRegistry implements AsyncDisposable {
 		}
 
 		this.signal.addEventListener("abort", propagateAbort, { once: true })
+
 		child.#detachFromParent = (): void => {
 			this.signal.removeEventListener("abort", propagateAbort)
 		}
@@ -222,10 +241,13 @@ export class ServiceRegistry implements AsyncDisposable {
 	}
 
 	/**
-	 * Walk the statically declared dependency graph looking for a path back to `root`.
+	 * Detect cycles in declared dependency tokens.
 	 *
-	 * Static analysis on declared token tuples — deterministic, immune to async interleaving. Cycles hidden inside opaque
-	 * factory resolvers cannot be detected (they hang instead); that limitation is documented in the README.
+	 * Notes:
+	 *
+	 * - Deterministic static walk over token tuples
+	 * - Not affected by async timing
+	 * - Opaque factory-internal cycles are not detectable here
 	 */
 	#assertAcyclic(root: ServiceToken<unknown>): void {
 		const visited = new Set<ServiceToken<unknown>>()
@@ -266,8 +288,10 @@ export class ServiceRegistry implements AsyncDisposable {
 
 		this.#abortController.abort(new LifecycleError("E_DISPOSED", "The service registry is disposing."))
 
-		// Children dispose first, newest first, then this registry's own services in reverse registration order. One
-		// stack runs both, so a failure in either is aggregated as SuppressedError rather than stopping the rest.
+		// Disposal order:
+		// 1) Children first (newest first)
+		// 2) Then local services (reverse registration order)
+		// Failures are aggregated (SuppressedError), not fail-fast.
 		const teardown = new AsyncDisposableStack()
 
 		teardown.use(this.#stack)
@@ -283,7 +307,7 @@ export class ServiceRegistry implements AsyncDisposable {
 	}
 
 	/**
-	 * Alias for `[Symbol.asyncDispose]()`. Warns (via `onWarning`) on repeat calls.
+	 * Alias for `[Symbol.asyncDispose]()`. Repeated calls trigger `onWarning`.
 	 */
 	public dispose(): Promise<void> {
 		if (this.#disposed) {
@@ -295,6 +319,6 @@ export class ServiceRegistry implements AsyncDisposable {
 }
 
 /**
- * The module-level default registry — the convenience path for applications with one scope.
+ * Default module-level registry. Handy for single-scope apps.
  */
 export const defaultRegistry: ServiceRegistry = new ServiceRegistry()

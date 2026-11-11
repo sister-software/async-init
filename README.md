@@ -1,6 +1,6 @@
 # async-init
 
-Async construction and disposal lifecycle primitives — the missing symbol for constructing asynchronous things.
+Async setup and cleanup for JavaScript objects.
 
 ```bash
 yarn add async-init
@@ -10,22 +10,20 @@ npm install async-init
 
 ## The problem
 
-`Symbol.asyncDispose` gave JavaScript a standard teardown hook. Nothing gave it the other half. A class that needs to open a connection, warm a cache, or await a handshake after `new` has no standard place to do it — `new` is synchronous, full stop.
+`new` is synchronous. If an object needs to connect, warm a cache, or complete a handshake, callers must remember to await a separate method.
 
-Most codebases patch around this with a `ready()` method the caller has to remember to await, or a factory function that duplicates the class's own fields. Both work until you need composition: an `await using` block, an `AsyncDisposableStack`, a container that resolves ten services in dependency order. Ad-hoc `ready()` conventions don't compose — every consumer has to know your particular flavor of "not ready yet," and a container has no symbol to detect it by.
+`async-init` provides a shared setup symbol and three optional layers:
 
-`async-init` adds that symbol. Three layers, each usable on its own:
-
-1. **The protocol** — a symbol and two functions. No state, no dependencies.
-2. **`Service<T>`** — a lazy, awaitable handle around a resolver, for when you want deferred construction without a container.
-3. **`ServiceRegistry`** — an optional token-keyed container with dependency injection, child scopes, and `await using` teardown.
+1. **Protocol** — initialize an instance or construct one with async setup.
+2. **`Service<T>`** — lazily resolve and dispose an instance.
+3. **`ServiceRegistry`** — add dependency injection, child scopes, and teardown.
 
 ## The protocol
 
-`asyncInit` is the async complement to `Symbol.asyncDispose`: a symbol-keyed method a class implements to run setup after its constructor returns.
+Implement `[asyncInit]` for setup and `[Symbol.asyncDispose]` for cleanup:
 
 ```ts
-import { asyncInit, construct, init } from "async-init"
+import { asyncInit, construct } from "async-init"
 
 class Database {
 	public connected = false
@@ -43,13 +41,14 @@ const db = await construct(Database) // new Database() + await db[asyncInit]()
 db.connected // true
 ```
 
-`construct` is `new` plus `init` in one call, with constructor arguments fully typed against the class. Use `init` directly when you already have an instance — a `new`-then-`init` two-step, or a base class initializing a subclass instance passed in from elsewhere.
-
-Two guards round out the protocol: `isAsyncInitializable` and `isAsyncDisposable` walk an object's prototype chain (not just its own properties), so a subclass inheriting `[Symbol.asyncDispose]` from a base class is still detected correctly. `markDisposed` / `isDisposed` mark an object disposed exactly once. `Service` uses them on the instance it resolves: before calling `[Symbol.asyncDispose]` it checks `isDisposed` and skips instances already marked, and only calls `markDisposed` after that call resolves successfully — so a dispose that throws leaves the instance unmarked and retryable. `ServiceRegistry` does not use `markDisposed` at all; it tracks its own disposed state with a private flag, which is what the `E_DISPOSED` guards on `register`, `get`, and `createChild` check.
+- **New instance:** `construct(Database)` creates and initializes it. Constructor arguments are typed.
+- **Existing instance:** use `init(instance)`.
+- **Checks:** `isAsyncInitializable` and `isAsyncDisposable` detect inherited methods too.
+- **Disposal markers:** `markDisposed` and `isDisposed` track disposed objects. `Service` marks an instance only after successful cleanup, so failed cleanup can be retried. The registry tracks its own disposal separately.
 
 ## Lazy handles
 
-`Service<T>` wraps a resolver — an instance, a factory, or a zero-arg constructor — behind a handle that's awaitable and disposable. Nothing runs until the handle is awaited; the resolution is memoized, so concurrent awaiters share one in-flight promise instead of racing separate constructions.
+`Service<T>` wraps an instance, factory, or zero-argument constructor. Await the handle to resolve it. Concurrent awaiters share the same resolution.
 
 ```ts
 import { Service } from "async-init"
@@ -66,27 +65,25 @@ class Greeter {
 
 const service = new Service(Greeter)
 const greeter = await service // resolves and memoizes
-greeter.greet("teffen") // 'hello teffen of world'
+greeter.greet("sister") // 'hello sister of world'
 ```
 
-If the underlying instance implements the lifecycle protocol, `Service` calls `[asyncInit]` on it during resolution and forwards `[Symbol.asyncDispose]` to it on disposal. A plain instance with neither still works — `Service` degrades to a lazy memoizing wrapper.
+If the instance has lifecycle methods, `Service` initializes and disposes it. Plain instances work too.
 
-`proxyService` goes one step further: it wraps a `Service<T>` in a proxy that exposes `T`'s own members directly, so you can call a method before the service has resolved — the call awaits resolution first, then dispatches. Methods return promises; plain properties become zero-argument thunks, since a property can't be read synchronously off something that isn't built yet.
+`proxyService` lets you access members before resolution. Methods return promises; properties become zero-argument functions:
 
 ```ts
 import { proxyService } from "async-init"
 
 const proxied = proxyService(new Service(Greeter))
 
-await proxied.greet("teffen") // 'hello teffen of world' — resolves first, then calls
+await proxied.greet("sister") // 'hello sister of world' — resolves first, then calls
 await proxied.planet() // 'world' — a thunk, since `planet` isn't a method
 ```
 
 ## The registry
 
-`ServiceRegistry` is a token-keyed container over `Service<T>` handles. It's entirely optional — every layer above works without it — but it's where dependency injection and scoped teardown live.
-
-Tokens bind a runtime key to a phantom type, so `registry.get(token)` comes back typed without a manual cast:
+The optional registry adds typed tokens, dependency injection, and scoped teardown:
 
 ```ts
 import { createToken, ServiceRegistry } from "async-init"
@@ -109,7 +106,9 @@ registry.register(ILogger, Logger)
 const logger = await registry.get(ILogger)
 ```
 
-A class can declare its own dependencies as a static `dependencies` tuple of tokens. This is the erasable-TS answer to parameter-decorator DI — decorators need `emitDecoratorMetadata`, which needs a build step, which is exactly what this package avoids. The registry resolves and initializes every declared dependency, in parallel, before calling the constructor — so the constructor body can use them as plain, already-ready values:
+### Dependencies
+
+Declare tokens in a static `dependencies` tuple. The registry resolves and initializes them in parallel before calling the constructor:
 
 ```ts
 class Indexer {
@@ -132,7 +131,9 @@ registry.register(IIndexer, Indexer)
 const indexer = await registry.get(IIndexer)
 ```
 
-`registry.createChild()` opens a scope that falls back to its parent on lookup, lets a child registration shadow a parent one, and chains abort signals downward. Disposing a registry disposes its children first (LIFO), then its own services, through an internal `AsyncDisposableStack` — which is also what makes `await using registry` do the right thing at scope exit.
+### Child scopes
+
+`createChild()` falls back to the parent for lookups. Child registrations can shadow parent registrations, and abort signals chain downward. Disposal cleans up children first (last in, first out), then the registry's services.
 
 ```ts
 class Value {
@@ -168,20 +169,18 @@ fromParent.value // 'from-parent' — untouched
 
 ## Examples
 
-Runnable, self-contained examples for every layer live in [`examples/`](./examples/) — from the bare protocol through dependency injection and per-request child scopes. Each runs directly from a clone with `node examples/<file>.ts`, no build step.
+See [`examples/`](./examples/) for runnable examples. From a clone, run `node examples/<file>.ts`.
 
 ## Limitations
 
-- **Cycles between injectable constructors are caught, not all cycles are.** The registry walks the statically declared `dependencies` tuples before resolving, and throws `E_DEPENDENCY_CYCLE` with the full path (`a → b → a`) if it finds one. That walk only sees tokens declared in `dependencies` — a cycle routed through an opaque factory resolver (a plain function that calls back into the registry itself) isn't visible to static analysis and will deadlock instead of throwing. Break those by depending on the `Service` handle rather than the resolved value, and awaiting it after your own construction finishes, not during it.
-- **Async-only.** There is no synchronous `Disposable` counterpart in v1 — `Service` and `ServiceRegistry` are both `AsyncDisposable`, and `asyncInit` has no sync equivalent. A piece of your system that never needs to await construction or teardown doesn't need this package.
-- **Proxy access to unknown or symbol-keyed properties returns an async wrapper, not the real value.** `proxyService` can't tell a real member from an incidental one — `Symbol.iterator`, Node's `util.inspect.custom`, or any other symbol-keyed access on a proxied handle comes back as a function that resolves the service first, same as any other property. Platform code that expects a synchronous return (iteration protocols, `console.log` formatting) gets a `Promise` instead and breaks. The same applies if your own class declares a property or method named `then`, `resolve`, or `instance` — those names are already claimed by `Service.prototype` and win over your instance's own members when accessed through the proxy.
-- **Self-guarding your own class's dispose trades away retry-on-failure.** You don't need the `markDisposed` idiom (`if (!markDisposed(this)) return`) just to survive a `Service` handle — the handle already provides that idempotence, mark-after-success, so your cleanup runs exactly once no matter how many times the handle is disposed. Add the self-guard only if your dispose method might also be invoked directly, more than once, outside of any handle — or if one pre-built instance is wrapped by two separate `Service` handles that could dispose _concurrently_ (sequential double-dispose is already safe; the concurrent case is the one race the handle's own guard can't close). If you do, know the cost: marking as the first line means a throw partway through your cleanup still leaves the instance marked disposed, so a later direct retry silently no-ops instead of re-running. Mark disposed after your cleanup actually finishes if you want both direct-call idempotence and a failed dispose to stay retryable.
+- **Dependency cycles:** Declared constructor cycles throw `E_DEPENDENCY_CYCLE` with the path. Cycles through factories are not detected and can deadlock. Break those by passing a `Service` handle and awaiting it after construction.
+- **Async only:** There is no synchronous `Disposable` or `init` equivalent in v1.
+- **Proxies:** Unknown and symbol-keyed properties return async wrappers. Synchronous protocols such as iteration and inspection can break. The names `then`, `resolve`, and `instance` belong to the handle and shadow instance members.
+- **Disposal guards:** `Service` skips already-marked instances and marks them after successful cleanup. Direct calls or concurrent disposal through separate handles may need their own guard. Marking before cleanup prevents concurrent calls, but a failure stays marked and cannot be retried. Marking after cleanup permits retries, but alone does not prevent concurrent calls.
 
 ## Type discipline
 
-`async-init` compiles under `isolatedDeclarations` — every exported value, function, and class member carries an explicit type annotation, so declaration emit never depends on cross-file inference. It also compiles under `erasableSyntaxOnly`: no `enum`, no constructor parameter properties, nothing that requires more than stripping types to run. That's why the tests above use long-form field assignment instead of parameter properties, and why `LifecycleErrorCode` is a `const` object with a derived type instead of an `enum`.
-
-The practical effect: the package runs directly under `node`'s built-in type stripping. There's no build step between cloning the source and running it.
+The package uses `isolatedDeclarations` and `erasableSyntaxOnly`. Its TypeScript can run with Node's built-in type stripping, without a build step.
 
 ## License
 

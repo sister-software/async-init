@@ -1,14 +1,11 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
+ * @copyright Sister Software
  *
- *   Layer 1 — the protocol: a symbol for async construction, plus guards that walk the
- *   prototype chain.
- *
- *   Run from a clone: `node examples/01-protocol.ts`
- *
- *   In your own project, import from "async-init" instead of the relative path.
+ * Quick demo: async init + async dispose protocol.
+ * Run from repo root: `node examples/01-protocol.ts`
+ * In your app, import from "async-init" (not a relative path).
  */
 
 import { asyncInit, construct, init, isAsyncDisposable, isAsyncInitializable, isDisposed } from "async-init"
@@ -36,21 +33,26 @@ class Database {
 	}
 }
 
-// `construct` is `new` + init in one call — arguments are typed against the constructor.
+// `construct` = `new` + async init (one step).
+// Args are type-checked from the constructor.
 const db = await construct(Database, "postgres://localhost/demo")
 
-console.log("connected?", db.connected) // true
+console.log("connected?", db.connected)
 
-// `init` covers the case where you already hold an instance.
+// expected: true
+
+// Use `init` when you already created the instance.
 const other = await init(new Database("postgres://localhost/other"))
 
-// The guards use `in`, so subclasses inheriting the symbol methods are still detected.
+// Guards use `in`, so inherited symbol methods still count.
 class ReplicaDatabase extends Database {}
 
 console.log("initializable?", isAsyncInitializable(new ReplicaDatabase("postgres://replica"))) // true
-console.log("disposable?", isAsyncDisposable(db)) // true
+console.log("disposable?", isAsyncDisposable(db))
 
-// `await using` pairs with the protocol for scoped teardown:
+// expected: true
+
+// `await using` gives auto-cleanup at scope end.
 async function scopedDemo(): Promise<void> {
 	await using scoped = await construct(Database, "postgres://localhost/scoped")
 
@@ -58,9 +60,9 @@ async function scopedDemo(): Promise<void> {
 }
 
 await scopedDemo()
-// "closed postgres://localhost/scoped" has printed by this line.
+// By here, "closed .../scoped" was already logged.
 
 await db[Symbol.asyncDispose]()
 await other[Symbol.asyncDispose]()
 
-console.log("marked disposed by a handle?", isDisposed(db)) // false — direct disposal doesn't mark; Service handles do
+console.log("marked disposed by a handle?", isDisposed(db)) // false: direct dispose doesn't mark; Service handles do

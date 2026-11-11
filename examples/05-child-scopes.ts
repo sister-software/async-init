@@ -1,16 +1,16 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
+ * @copyright Sister Software
  *
- *   Child scopes — the per-request pattern: app-wide services live in a parent registry;
- *   each request opens a child scope that can see the parent's services, register its
- *   own, and shadow when it needs to. Disposing the parent reaches children first, and
- *   abort signals chain downward.
+ * - Each request gets a child scope.
+ * - Child scopes can use parent services.
+ * - Child scopes can override (shadow) services.
+ * - Disposing parent disposes children first.
+ * - Abort signals flow parent -> child.
  *
- *   Run from a clone: `node examples/05-child-scopes.ts`
- *
- *   In your own project, import from "async-init" instead of the relative path.
+ * Run from clone: `node examples/05-child-scopes.ts`
+ * In your project, import from "async-init".
  */
 
 import { createToken, ServiceRegistry } from "async-init"
@@ -30,16 +30,18 @@ function createLogger(prefix: string): Logger {
 	}
 }
 
-// The application scope: long-lived, shared services.
+// App scope = long-lived + shared services.
 const app = new ServiceRegistry()
 
 app.register(ILogger, createLogger("app"))
 
 async function handleRequest(id: number, options?: { verbose: boolean }): Promise<void> {
-	// One child scope per request — disposed at the end of this function.
+	// 1 request = 1 child scope.
+	// Auto-disposed when this function ends.
 	await using scope = app.createChild()
 
-	// A verbose request shadows the shared logger with its own; others fall back to the parent's.
+	// Verbose request? Use request-specific logger (shadows app logger).
+	// Not verbose? Use app logger.
 	if (options?.verbose) {
 		scope.register(ILogger, createLogger(`request-${id}`))
 	}
@@ -50,13 +52,16 @@ async function handleRequest(id: number, options?: { verbose: boolean }): Promis
 }
 
 await handleRequest(1)
-await handleRequest(2, { verbose: true }) // its scoped logger closes when the request ends
+await handleRequest(2, { verbose: true }) // request logger closes when request ends
 
-// Abort chains downward: every scope's `signal` aborts when an ancestor disposes.
+// Abort flows downward.
+// If parent disposes, child `signal` aborts too.
 const lingering = app.createChild()
 
-console.log("child aborted before app dispose?", lingering.signal.aborted) // false
+console.log("child aborted before app dispose?", lingering.signal.aborted)
+
+// expected: false
 
 await app.dispose()
 
-console.log("child aborted after app dispose?", lingering.signal.aborted) // true
+console.log("child aborted after app dispose?", lingering.signal.aborted) // expected: true

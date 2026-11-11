@@ -1,29 +1,35 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
+ * @copyright Sister Software
  *
- *   Method-resolving proxy over Service<T>: call instance methods before the service has
- *   resolved — the call awaits resolution first. Types are honest: non-function properties
- *   surface as explicit thunks, matching what the runtime returns.
+ * You can call service members before the service is ready.
+ *
+ * - Calls wait until the service resolves.
+ * - Types match runtime behavior.
+ * - Non-function properties are exposed as thunks: `() => Promise<value>`.
  */
 
 import { Service } from "#service"
 
 /**
- * The lazy view of `T` exposed by {@linkcode proxyService}: methods return promises; plain properties become
- * zero-argument thunks returning promises.
+ * Lazy view of `T` from {@linkcode proxyService}.
+ *
+ * - Methods -> `(...args) => Promise<result>`
+ * - Plain properties -> `() => Promise<value>`
  */
 export type ServiceProxy<T> = {
 	[K in keyof T]: T[K] extends (...args: infer A) => infer R ? (...args: A) => Promise<Awaited<R>> : () => Promise<T[K]>
 }
 
 /**
- * Wrap a {@linkcode Service} so instance members can be invoked before resolution.
+ * Wrap a {@linkcode Service} so you can use members before it resolves.
  *
- * `Service.prototype`'s own members (except `constructor`) win over instance members and are bound to the unproxied
- * target — `Service` uses private fields, which throw when accessed through a proxy receiver. Everything else —
- * `Object.prototype` names included — delegates to the resolved instance.
+ * Rules:
+ *
+ * - `Service.prototype` members (except `constructor`) take priority.
+ * - Those members are bound to the raw target (important for private fields).
+ * - Everything else (including `Object.prototype` names) is forwarded to the resolved instance.
  */
 export function proxyService<T extends object>(service: Service<T>): Service<T> & ServiceProxy<T> {
 	return new Proxy(service, {

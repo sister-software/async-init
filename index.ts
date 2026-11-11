@@ -1,10 +1,7 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
- *
- *   Async construction and disposal lifecycle primitives — protocol symbols, lazy Service
- *   handles, and an optional token-based service registry.
+ * @copyright Sister Software
  */
 
 export * from "./lib/errors.ts"

@@ -1,8 +1,8 @@
 /**
- * @copyright Sister Software
  * @license MIT
+ * @file Oxlint configuration for async-init.
  * @author Teffen Ellis, et al.
- * @file oxlint configuration for async-init.
+ * @copyright Sister Software
  */
 
 import { createOxlintConfig } from "@sister.software/oxlint-config"
