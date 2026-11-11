@@ -1,10 +1,8 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
+ * @copyright Sister Software
  */
-
-import { describe, expect, it } from "vitest"
 
 import {
 	asyncInit,
@@ -14,9 +12,12 @@ import {
 	isAsyncInitializable,
 	isDisposed,
 	markDisposed,
-} from "../lib/protocol.ts"
+} from "async-init"
+import { describe, expect, it } from "vitest"
 
-/** A disposable defined via a class METHOD — lives on the prototype, not the instance. */
+/**
+ * A disposable defined via a class METHOD — lives on the prototype, not the instance.
+ */
 class PrototypeDisposable {
 	public disposeCount = 0
 
@@ -25,7 +26,9 @@ class PrototypeDisposable {
 	}
 }
 
-/** Inheritance: the subclass has NOTHING own — everything comes from the base prototype. */
+/**
+ * Inheritance: the subclass has NOTHING own — everything comes from the base prototype.
+ */
 class InheritedDisposable extends PrototypeDisposable {}
 
 class Initializable {

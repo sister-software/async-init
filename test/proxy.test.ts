@@ -1,13 +1,11 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
+ * @copyright Sister Software
  */
 
+import { proxyService, Service } from "async-init"
 import { describe, expect, it } from "vitest"
-
-import { proxyService } from "../lib/proxy.ts"
-import { Service } from "../lib/service.ts"
 
 class Greeter {
 	public planet = "world"

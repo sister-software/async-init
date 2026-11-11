@@ -1,14 +1,11 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
+ * @copyright Sister Software
  */
 
+import { asyncInit, ServiceRegistry, createToken } from "async-init"
 import { describe, expect, it } from "vitest"
-
-import { asyncInit } from "../lib/protocol.ts"
-import { ServiceRegistry } from "../lib/registry.ts"
-import { createToken } from "../lib/token.ts"
 
 class Logger {
 	public readonly lines: string[] = []
@@ -138,7 +135,7 @@ describe("injectable constructors", () => {
 		registry.register(IA, A)
 		registry.register(IB, B)
 
-		await expect(registry.get(IA).resolve()).rejects.toThrowError(
+		await expect(registry.get(IA).resolve()).rejects.toThrow(
 			expect.objectContaining({
 				code: "E_DEPENDENCY_CYCLE",
 				message: expect.stringContaining("a → b → a"),
@@ -153,6 +150,7 @@ describe("injectable constructors", () => {
 		function createWidget(): { readonly label: string } {
 			return { label: "plain-widget" }
 		}
+
 		createWidget.dependencies = ["not-a-token"]
 
 		const IWidget = createToken<{ readonly label: string }>("widget")
@@ -174,11 +172,13 @@ describe("injectable constructors", () => {
 			constructor(_b: object) {}
 			public async [Symbol.asyncDispose](): Promise<void> {}
 		}
+
 		class B {
 			public static readonly dependencies = [IC] as const
 			constructor(_c: object) {}
 			public async [Symbol.asyncDispose](): Promise<void> {}
 		}
+
 		class C {
 			public static readonly dependencies = [IA] as const
 			constructor(_a: object) {}
@@ -190,8 +190,6 @@ describe("injectable constructors", () => {
 		registry.register(IB, B)
 		registry.register(IC, C)
 
-		await expect(registry.get(IA).resolve()).rejects.toThrowError(
-			expect.objectContaining({ code: "E_DEPENDENCY_CYCLE" })
-		)
+		await expect(registry.get(IA).resolve()).rejects.toThrow(expect.objectContaining({ code: "E_DEPENDENCY_CYCLE" }))
 	})
 })

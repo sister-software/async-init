@@ -13,7 +13,7 @@
  *   In your own project, import from "async-init" instead of the relative path.
  */
 
-import { asyncInit, createToken, LifecycleError, ServiceRegistry } from "../index.ts"
+import { asyncInit, createToken, LifecycleError, ServiceRegistry } from "async-init"
 
 class Config {
 	public readonly databaseURL = "postgres://localhost/app"

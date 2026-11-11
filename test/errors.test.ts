@@ -1,12 +1,11 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
+ * @copyright Sister Software
  */
 
+import { LifecycleError, LifecycleErrorCode } from "async-init"
 import { describe, expect, it } from "vitest"
-
-import { LifecycleError, LifecycleErrorCode } from "../lib/errors.ts"
 
 describe("LifecycleError", () => {
 	it("carries a code and message", () => {
@@ -19,7 +18,9 @@ describe("LifecycleError", () => {
 	})
 
 	it("enumerates every code in the const object", () => {
-		expect(Object.values(LifecycleErrorCode).sort()).toEqual([
+		const sortedLifecycleErrorCodes = Object.values(LifecycleErrorCode).toSorted((a, b) => a.localeCompare(b))
+
+		expect(sortedLifecycleErrorCodes).toEqual([
 			"E_DEPENDENCY_CYCLE",
 			"E_DISPOSED",
 			"E_DUPLICATE_TOKEN",

@@ -13,7 +13,7 @@
  *   In your own project, import from "async-init" instead of the relative path.
  */
 
-import { createToken, ServiceRegistry } from "../index.ts"
+import { createToken, ServiceRegistry } from "async-init"
 
 interface Logger extends AsyncDisposable {
 	log(line: string): void

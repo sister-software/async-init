@@ -1,15 +1,12 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
- *
- *   Type-level assertions — run via `yarn test:types` (vitest --typecheck).
+ * @copyright Sister Software
  */
 
+import { createToken, ServiceRegistry } from "async-init"
+import type { ServiceProxy, ServiceToken, TokenInstances } from "async-init"
 import { describe, expectTypeOf, it } from "vitest"
-
-import { createToken, ServiceRegistry } from "../index.ts"
-import type { ServiceProxy, ServiceToken, TokenInstances } from "../index.ts"
 
 interface Logger {
 	readonly level: number
@@ -21,6 +18,7 @@ const ILogger = createToken<Logger>("logger")
 describe("ServiceProxy", () => {
 	it("methods become promise-returning, properties become thunks", () => {
 		expectTypeOf<ServiceProxy<Logger>["log"]>().toEqualTypeOf<(line: string) => Promise<boolean>>()
+
 		expectTypeOf<ServiceProxy<Logger>["level"]>().toEqualTypeOf<() => Promise<number>>()
 	})
 })
@@ -41,6 +39,7 @@ describe("registry inference", () => {
 		expectTypeOf(service.resolve()).resolves.toEqualTypeOf<Logger>()
 	})
 
+	// oxlint-disable-next-line vitest/expect-expect -- Type-level test, no runtime expectation needed.
 	it("register() rejects a constructor whose signature contradicts its dependencies", () => {
 		class Mismatched {
 			public static readonly dependencies = [ILogger] as const

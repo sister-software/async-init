@@ -8,12 +8,10 @@
  *   aborts the registry signal first so in-flight resolvers can bail.
  */
 
-import { LifecycleError } from "./errors.ts"
-import { proxyService } from "./proxy.ts"
-import type { ServiceProxy } from "./proxy.ts"
-import { Service } from "./service.ts"
-import type { ServiceResolver } from "./service.ts"
-import type { ServiceToken } from "./token.ts"
+import { LifecycleError } from "#errors"
+import { proxyService, type ServiceProxy } from "#proxy"
+import { Service, type ServiceResolver } from "#service"
+import type { ServiceToken } from "#token"
 
 export interface ServiceRegistryOptions {
 	/**

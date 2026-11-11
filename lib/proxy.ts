@@ -8,7 +8,7 @@
  *   surface as explicit thunks, matching what the runtime returns.
  */
 
-import { Service } from "./service.ts"
+import { Service } from "#service"
 
 /**
  * The lazy view of `T` exposed by {@linkcode proxyService}: methods return promises; plain properties become

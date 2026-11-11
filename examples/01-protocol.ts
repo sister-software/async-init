@@ -11,7 +11,7 @@
  *   In your own project, import from "async-init" instead of the relative path.
  */
 
-import { asyncInit, construct, init, isAsyncDisposable, isAsyncInitializable, isDisposed } from "../index.ts"
+import { asyncInit, construct, init, isAsyncDisposable, isAsyncInitializable, isDisposed } from "async-init"
 
 class Database {
 	public connected = false

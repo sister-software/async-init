@@ -1,14 +1,13 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
+ * @copyright Sister Software
  */
 
-import { describe, expect, it } from "vitest"
+import { setTimeout } from "timers/promises"
 
-import { asyncInit, isDisposed, markDisposed } from "../lib/protocol.ts"
-import type { LifecycleContext } from "../lib/protocol.ts"
-import { isServiceConstructor, Service } from "../lib/service.ts"
+import { asyncInit, isDisposed, isServiceConstructor, Service, markDisposed, type LifecycleContext } from "async-init"
+import { describe, expect, it } from "vitest"
 
 class Widget {
 	public initContext: LifecycleContext | undefined
@@ -23,7 +22,9 @@ class Widget {
 	}
 }
 
-/** Subclass with NOTHING own on its prototype — the inherited-disposable trap. */
+/**
+ * Subclass with NOTHING own on its prototype — the inherited-disposable trap.
+ */
 class InheritedWidget extends Widget {}
 
 /**
@@ -84,9 +85,11 @@ describe("Service resolution", () => {
 
 	it("constructs exactly one instance under concurrent await", async () => {
 		let constructed = 0
+
 		const service = new Service(async () => {
 			constructed += 1
-			await new Promise((resolve) => setTimeout(resolve, 10))
+
+			await setTimeout(10)
 
 			return new Widget()
 		})
@@ -100,6 +103,7 @@ describe("Service resolution", () => {
 
 	it("clears the memo on failure so a later await can retry", async () => {
 		let attempts = 0
+
 		const service = new Service(() => {
 			attempts += 1
 
@@ -136,6 +140,7 @@ describe("Service disposal", () => {
 
 	it("is a no-op when never resolved", async () => {
 		let constructed = 0
+
 		const service = new Service(() => {
 			constructed += 1
 
@@ -185,6 +190,7 @@ describe("Service disposal", () => {
 	})
 
 	it("works with await using", async () => {
+		// oxlint-disable-next-line no-useless-assignment -- assignment is necessary for type inference
 		let seen: Widget | null = null
 
 		{

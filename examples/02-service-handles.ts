@@ -12,7 +12,7 @@
  *   In your own project, import from "async-init" instead of the relative path.
  */
 
-import { asyncInit, proxyService, Service } from "../index.ts"
+import { asyncInit, proxyService, Service } from "async-init"
 
 let constructions = 0
 

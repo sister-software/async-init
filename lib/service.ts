@@ -7,9 +7,9 @@
  *   the registry layer builds on this but is never required.
  */
 
-import { LifecycleError } from "./errors.ts"
-import { asyncInit, isAsyncDisposable, isAsyncInitializable, isDisposed, markDisposed } from "./protocol.ts"
-import type { LifecycleContext } from "./protocol.ts"
+import { LifecycleError } from "#errors"
+import { asyncInit, isAsyncDisposable, isAsyncInitializable, isDisposed, markDisposed } from "#protocol"
+import type { LifecycleContext } from "#protocol"
 
 /**
  * A function which produces a service instance, optionally asynchronously.

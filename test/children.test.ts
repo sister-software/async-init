@@ -1,16 +1,15 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
+ * @copyright Sister Software
  */
 
+import { setTimeout } from "node:timers/promises"
 import { setFlagsFromString } from "node:v8"
 import { runInNewContext } from "node:vm"
 
+import { createToken, ServiceRegistry } from "async-init"
 import { describe, expect, it } from "vitest"
-
-import { ServiceRegistry } from "../lib/registry.ts"
-import { createToken } from "../lib/token.ts"
 
 const IValue = createToken<{ readonly value: string } & AsyncDisposable>("value")
 
@@ -47,18 +46,22 @@ describe("createChild", () => {
 		const order: string[] = []
 
 		const parent = new ServiceRegistry()
+
 		parent.register(
 			IValue,
 			createValue("p", () => order.push("parent-service"))
 		)
+
 		await parent.get(IValue).resolve()
 
 		const child = parent.createChild()
 		const IChildValue = createToken<AsyncDisposable>("child-value")
+
 		child.register(
 			IChildValue,
 			createValue("c", () => order.push("child-service"))
 		)
+
 		await child.get(IChildValue).resolve()
 
 		await parent.dispose()
@@ -81,10 +84,12 @@ describe("createChild", () => {
 
 		const parent = new ServiceRegistry()
 		const child = parent.createChild()
+
 		child.register(
 			IValue,
 			createValue("c", () => (disposeCount += 1))
 		)
+
 		await child.get(IValue).resolve()
 
 		await child.dispose()
@@ -99,18 +104,22 @@ describe("createChild", () => {
 		let childDisposeCount = 0
 
 		const parent = new ServiceRegistry()
+
 		parent.register(
 			IValue,
 			createValue("p", () => (parentDisposeCount += 1))
 		)
+
 		await parent.get(IValue).resolve()
 
 		const child = parent.createChild()
 		const IChildValue = createToken<AsyncDisposable>("child-value")
+
 		child.register(
 			IChildValue,
 			createValue("c", () => (childDisposeCount += 1))
 		)
+
 		await child.get(IChildValue).resolve()
 
 		await child.dispose()
@@ -125,16 +134,24 @@ describe("createChild", () => {
 		const parentWarnings: string[] = []
 		const childWarnings: string[] = []
 
-		const parent = new ServiceRegistry({ onWarning: (message) => parentWarnings.push(message) })
+		const parent = new ServiceRegistry({
+			onWarning: (message) => parentWarnings.push(message),
+		})
 
 		const inheriting = parent.createChild()
+
 		await inheriting.dispose()
 		await inheriting.dispose()
+
 		expect(parentWarnings).toHaveLength(1)
 
-		const overriding = parent.createChild({ onWarning: (message) => childWarnings.push(message) })
+		const overriding = parent.createChild({
+			onWarning: (message) => childWarnings.push(message),
+		})
+
 		await overriding.dispose()
 		await overriding.dispose()
+
 		expect(childWarnings).toHaveLength(1)
 		expect(parentWarnings).toHaveLength(1)
 
@@ -170,7 +187,7 @@ describe("createChild", () => {
 			await openAndClose(index)
 		}
 
-		await new Promise((resolve) => setTimeout(resolve, 0))
+		await setTimeout(0)
 		collect()
 
 		expect(payloads.map((ref) => ref.deref())).toEqual([undefined, undefined, undefined])

@@ -1,14 +1,11 @@
 /**
- * @copyright Sister Software
  * @license MIT
  * @author Teffen Ellis, et al.
+ * @copyright Sister Software
  */
 
+import { ServiceRegistry, createToken } from "async-init"
 import { describe, expect, it } from "vitest"
-
-import { LifecycleError } from "../lib/errors.ts"
-import { ServiceRegistry } from "../lib/registry.ts"
-import { createToken } from "../lib/token.ts"
 
 interface Logger {
 	readonly lines: string[]
@@ -63,7 +60,7 @@ describe("ServiceRegistry", () => {
 		await using registry = new ServiceRegistry()
 		registry.register(ILogger, createTestLogger())
 
-		expect(() => registry.register(ILogger, createTestLogger())).toThrowError(
+		expect(() => registry.register(ILogger, createTestLogger())).toThrow(
 			expect.objectContaining({ code: "E_DUPLICATE_TOKEN" })
 		)
 	})
@@ -71,7 +68,7 @@ describe("ServiceRegistry", () => {
 	it("throws E_UNRESOLVED_TOKEN for unknown tokens", async () => {
 		await using registry = new ServiceRegistry()
 
-		expect(() => registry.get(ILogger)).toThrowError(expect.objectContaining({ code: "E_UNRESOLVED_TOKEN" }))
+		expect(() => registry.get(ILogger)).toThrow(expect.objectContaining({ code: "E_UNRESOLVED_TOKEN" }))
 	})
 
 	it("disposes resolved services LIFO, aborting the signal first", async () => {
@@ -86,6 +83,7 @@ describe("ServiceRegistry", () => {
 				order.push("first")
 			},
 		})
+
 		registry.register(ISecond, {
 			async [Symbol.asyncDispose]() {
 				order.push("second")
@@ -95,7 +93,10 @@ describe("ServiceRegistry", () => {
 		await registry.get(IFirst).resolve()
 		await registry.get(ISecond).resolve()
 
-		registry.signal.addEventListener("abort", () => order.push("abort"), { once: true })
+		registry.signal.addEventListener("abort", () => order.push("abort"), {
+			once: true,
+		})
+
 		await registry.dispose()
 
 		expect(order).toEqual(["abort", "second", "first"])
@@ -109,6 +110,7 @@ describe("ServiceRegistry", () => {
 			ILogger,
 			createTestLogger(() => (disposeCount += 1))
 		)
+
 		await handle.resolve()
 
 		await registry.dispose()
@@ -117,7 +119,10 @@ describe("ServiceRegistry", () => {
 
 	it("second dispose is a warned no-op", async () => {
 		const warnings: string[] = []
-		const registry = new ServiceRegistry({ onWarning: (message) => warnings.push(message) })
+
+		const registry = new ServiceRegistry({
+			onWarning: (message) => warnings.push(message),
+		})
 
 		await registry.dispose()
 		await registry.dispose()
@@ -129,7 +134,7 @@ describe("ServiceRegistry", () => {
 		const registry = new ServiceRegistry()
 		await registry.dispose()
 
-		expect(() => registry.register(ILogger, createTestLogger())).toThrowError(
+		expect(() => registry.register(ILogger, createTestLogger())).toThrow(
 			expect.objectContaining({ code: "E_DISPOSED" })
 		)
 	})
@@ -139,6 +144,6 @@ describe("ServiceRegistry", () => {
 		registry.register(ILogger, createTestLogger())
 		await registry.dispose()
 
-		expect(() => registry.get(ILogger)).toThrowError(expect.objectContaining({ code: "E_DISPOSED" }))
+		expect(() => registry.get(ILogger)).toThrow(expect.objectContaining({ code: "E_DISPOSED" }))
 	})
 })
