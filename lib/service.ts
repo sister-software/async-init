@@ -95,34 +95,38 @@ export class Service<T extends object> implements PromiseLike<T>, AsyncDisposabl
 	}
 
 	async #resolveUncached(): Promise<T> {
-		const resolver = this.#resolver
-		let instance: T
-
-		if (typeof resolver === "function") {
-			if (isServiceConstructor<T>(resolver)) {
-				instance = new resolver()
-			} else {
-				instance = await (resolver as ServiceFactory<T>)(this.#context)
-			}
-		} else if (resolver && typeof resolver === "object") {
-			instance = resolver
-		} else if (resolver == null) {
-			throw new LifecycleError(
-				"E_NO_RESOLVER",
-				"Service has no resolver. Provide an instance, factory, or constructor."
-			)
-		} else {
-			throw new LifecycleError(
-				"E_INVALID_RESOLVER",
-				`Resolver must be an instance, factory, or constructor. Received: ${String(resolver)}`
-			)
-		}
+		const instance = await this.#instantiate()
 
 		if (isAsyncInitializable(instance)) {
 			await instance[asyncInit](this.#context)
 		}
 
 		return instance
+	}
+
+	/**
+	 * Turn the resolver into an instance: construct a class, call a factory, or pass an instance through.
+	 */
+	#instantiate(): T | Promise<T> {
+		const resolver = this.#resolver
+
+		if (resolver == null) {
+			throw new LifecycleError(
+				"E_NO_RESOLVER",
+				"Service has no resolver. Provide an instance, factory, or constructor."
+			)
+		}
+
+		if (isServiceConstructor<T>(resolver)) return new resolver()
+
+		if (typeof resolver === "function") return (resolver as ServiceFactory<T>)(this.#context)
+
+		if (typeof resolver === "object") return resolver
+
+		throw new LifecycleError(
+			"E_INVALID_RESOLVER",
+			`Resolver must be an instance, factory, or constructor. Received: ${String(resolver)}`
+		)
 	}
 
 	/**
