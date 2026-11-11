@@ -28,33 +28,44 @@
 	],
 	"type": "module",
 	"sideEffects": false,
+	"imports": {
+		"#*": "./out/lib/*.js",
+		"#test/*": "./test/*.ts"
+	},
 	"exports": {
 		"./package.json": "./package.json",
 		".": "./out/index.js"
 	},
 	"scripts": {
-		"clean": "rm -rf out",
-		"compile": "tsc",
-		"check-types": "tsc --noEmit",
-		"lint": "oxlint && oxfmt --check .",
+		"check-types": "tsc --build .",
+		"clean": "tsc -b --clean",
+		"compile": "NODE_OPTIONS=\"--max-old-space-size=3000\" tsc -b",
+		"lint": "run-s lint:oxlint lint:oxfmt",
+		"lint:oxlint": "oxlint",
+		"lint:oxfmt": "oxfmt --check .",
+		"lint:fix": "run-s fix:oxlint format",
+		"fix:oxlint": "oxlint --fix",
 		"format": "oxfmt .",
-		"test": "vitest run",
+		"test": "yarn compile && vitest",
 		"test:types": "vitest run --typecheck",
 		"release": "release-it"
 	},
 	"devDependencies": {
-		"@sister.software/oxfmt-config": "^9.1.0",
-		"@sister.software/oxlint-config": "^9.1.0",
-		"@sister.software/tsconfig": "^9.0.0",
-		"@types/node": "^25.9.0",
-		"oxfmt": "0.56.0",
-		"oxlint": "1.71.0",
-		"release-it": "^17.10.0",
-		"typescript": "^6.0.3",
-		"vitest": "^4.1.6"
+		"@sister.software/oxfmt-config": "^14.8.0",
+		"@sister.software/oxlint-config": "^14.8.0",
+		"@sister.software/tsconfig": "^14.8.0",
+		"@types/node": "^26.6.6",
+		"npm-run-all": "^4.1.5",
+		"oxfmt": "0.78.0",
+		"oxlint": "1.93.0",
+		"oxlint-tsgolint": "^7.0.2006",
+		"release-it": "^17.11.0",
+		"typescript": "^7.0.2",
+		"vite": "^8.3.7",
+		"vitest": "^5.1.0"
 	},
 	"engines": {
-		"node": ">=24"
+		"node": "^24.22.1 || >=26.12.1"
 	},
 	"packageManager": "yarn@4.18.1",
 	"release-it": {
