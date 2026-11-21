@@ -1,11 +1,9 @@
+// SPDX-FileCopyrightText: Sister Software
+// SPDX-License-Identifier: MIT
+
 /**
- * @license MIT
- * @author Teffen Ellis, et al.
- * @copyright Sister Software
- *
- * Quick demo: async init + async dispose protocol.
- * Run from repo root: `node examples/01-protocol.ts`
- * In your app, import from "async-init" (not a relative path).
+ * Quick demo: async init + async dispose protocol. Run from repo root: `node examples/01-protocol.ts` In your app,
+ * import from "async-init" (not a relative path).
  */
 
 import { asyncInit, construct, init, isAsyncDisposable, isAsyncInitializable, isDisposed } from "async-init"

@@ -1,15 +1,13 @@
+// SPDX-FileCopyrightText: Sister Software
+// SPDX-License-Identifier: MIT
+
 /**
- * @license MIT
- * @author Teffen Ellis, et al.
- * @copyright Sister Software
- *
  * - A definition states the tokens a service needs, so the registry can read the dependency graph.
  * - An optional need resolves to null when its service is unregistered or fails.
  * - `invalidate` replaces a service and everything built from it, while in-flight work keeps what it started with.
  * - `subscribe` reports each build and disposal with its duration.
  *
- * Run from clone: `node examples/06-definitions.ts`
- * In your project, import from "async-init".
+ * Run from clone: `node examples/06-definitions.ts` In your project, import from "async-init".
  */
 
 import { createToken, optional, ServiceRegistry } from "async-init"

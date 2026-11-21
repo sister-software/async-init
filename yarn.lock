@@ -683,32 +683,32 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sister.software/oxfmt-config@npm:^14.8.0":
-  version: 14.8.0
-  resolution: "@sister.software/oxfmt-config@npm:14.8.0"
+"@sister.software/oxfmt-config@npm:^15.0.0":
+  version: 15.0.0
+  resolution: "@sister.software/oxfmt-config@npm:15.0.0"
   peerDependencies:
     oxfmt: ">=0.60.0 <1"
-  checksum: 10/7e69f5b7db727ffbe3a53db4fd846129d5e4249d51c69164232d594d43aa5a31c878d7deb9a079f606a8f33df5f841b7cf47c78a3d287d1dd834f31751e94f7d
+  checksum: 10/872834f8c1d537e56a5aa132ad9494e1e028befe8aeeeb19210aec6ed3968633d16c256815d822819e9b045b9ce5ba50b8c7b09b5c27994223a97b978562fcff
   languageName: node
   linkType: hard
 
-"@sister.software/oxlint-config@npm:^14.8.0":
-  version: 14.8.0
-  resolution: "@sister.software/oxlint-config@npm:14.8.0"
+"@sister.software/oxlint-config@npm:^15.0.0":
+  version: 15.0.0
+  resolution: "@sister.software/oxlint-config@npm:15.0.0"
   peerDependencies:
     oxlint: ">=1.75.0 <2"
     oxlint-tsgolint: ">=7.0.2003 <8"
   peerDependenciesMeta:
     oxlint-tsgolint:
       optional: true
-  checksum: 10/5ef21a00fbb4de518e4dce199bac0aa9563df5c4b1332ce9dba83886caa460c73e7eb87d90f9448ce6440d2d51672a695d2444e0a9fff93442a193301829df26
+  checksum: 10/3d109044b933a00b4fb070480a3d532e9170960ca3c707d4c0302ca8e1ea94993a8c326340ec90a8daa69a95fecc5b21e376714893f745660a2544124f27316c
   languageName: node
   linkType: hard
 
-"@sister.software/tsconfig@npm:^14.8.0":
-  version: 14.8.0
-  resolution: "@sister.software/tsconfig@npm:14.8.0"
-  checksum: 10/153e1050051d642e4c24999e6754194c681692d9c8ce75c95e29519234d8e8b31fdd688e04667e257e44d7e4faee1d70ca94f9da97f9a0c3596feaa25b3e19e1
+"@sister.software/tsconfig@npm:^15.0.0":
+  version: 15.0.0
+  resolution: "@sister.software/tsconfig@npm:15.0.0"
+  checksum: 10/9858a05c4cc8020f4462902689ab14df282fc172efe5e39a6de7bc81e319abe9baab4ceed40e37c4999a3349d19bf808fa2fa380aad2368f087cc782cf8abe7a
   languageName: node
   linkType: hard
 
@@ -1056,9 +1056,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "async-init@workspace:."
   dependencies:
-    "@sister.software/oxfmt-config": "npm:^14.8.0"
-    "@sister.software/oxlint-config": "npm:^14.8.0"
-    "@sister.software/tsconfig": "npm:^14.8.0"
+    "@sister.software/oxfmt-config": "npm:^15.0.0"
+    "@sister.software/oxlint-config": "npm:^15.0.0"
+    "@sister.software/tsconfig": "npm:^15.0.0"
     "@types/node": "npm:^26.6.6"
     npm-run-all: "npm:^4.1.5"
     oxfmt: "npm:0.78.0"

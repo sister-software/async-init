@@ -1,8 +1,8 @@
+// SPDX-FileCopyrightText: Sister Software
+// SPDX-License-Identifier: MIT
+
 /**
- * @license MIT
- * @author Teffen Ellis, et al.
- * @copyright Sister Software
- *   The registry layer builds on this but is never required.
+ * The registry layer builds on this but is never required.
  */
 
 import { LifecycleError } from "#errors"

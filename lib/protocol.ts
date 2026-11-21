@@ -1,9 +1,8 @@
+// SPDX-FileCopyrightText: Sister Software
+// SPDX-License-Identifier: MIT
+
 /**
- * @license MIT
- * @author Teffen Ellis, et al.
- * @copyright Sister Software
- * Quick utilities for async init/dispose checks.
- * No runtime state. Works standalone.
+ * Quick utilities for async init/dispose checks. No runtime state. Works standalone.
  */
 
 /**

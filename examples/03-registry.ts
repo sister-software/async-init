@@ -1,17 +1,20 @@
+// SPDX-FileCopyrightText: Sister Software
+// SPDX-License-Identifier: MIT
+
 /**
- * @license MIT
- * @author Teffen Ellis, et al.
- * @copyright Sister Software
  * Quick tour:
+ *
  * - Build a tiny service registry.
  * - Auto-clean resources with `await using`.
  * - Keep strong types with tokens (`get` needs no casts).
  * - Use interface-only services (no class required).
  *
  * Run from a clone:
+ *
  * - `node examples/03-registry.ts`
  *
  * In your app:
+ *
  * - Import from "async-init" (not this relative path).
  */
 

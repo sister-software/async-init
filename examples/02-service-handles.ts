@@ -1,10 +1,10 @@
+// SPDX-FileCopyrightText: Sister Software
+// SPDX-License-Identifier: MIT
+
 /**
- * @license MIT
- * @author Teffen Ellis, et al.
- * @copyright Sister Software
- *   await; concurrent awaiters share one construction; the proxy view lets you call methods before resolution. Run from
- *   a clone: `node examples/02-service-handles.ts` In your own project, import from "async-init" instead of the
- *   relative path.
+ * Await; concurrent awaiters share one construction; the proxy view lets you call methods before resolution. Run from a
+ * clone: `node examples/02-service-handles.ts` In your own project, import from "async-init" instead of the relative
+ * path.
  */
 
 import { setTimeout } from "node:timers/promises"

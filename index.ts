@@ -1,8 +1,5 @@
-/**
- * @license MIT
- * @author Teffen Ellis, et al.
- * @copyright Sister Software
- */
+// SPDX-FileCopyrightText: Sister Software
+// SPDX-License-Identifier: MIT
 
 export * from "./lib/definition.ts"
 export * from "./lib/errors.ts"

@@ -1,8 +1,7 @@
+// SPDX-FileCopyrightText: Sister Software
+// SPDX-License-Identifier: MIT
+
 /**
- * @license MIT
- * @author Teffen Ellis, et al.
- * @copyright Sister Software
- *
  * A service definition: the tokens a service needs, how to build it from them, and how to give it back.
  *
  * - The needs are data, so a registry can read the dependency graph without building anything.

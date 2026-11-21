@@ -1,20 +1,22 @@
+// SPDX-FileCopyrightText: Sister Software
+// SPDX-License-Identifier: MIT
+
 /**
- * @license MIT
- * @author Teffen Ellis, et al.
- * @copyright Sister Software
- *
  * Quick demo: dependency injection with async init.
  *
  * How it works:
+ *
  * - Each class lists dependencies as a token tuple.
  * - The registry resolves + initializes them before constructor code runs.
  * - Constructors get ready-to-use values.
  * - Tuple/constructor mismatches fail at compile time.
  *
  * Run from a clone:
+ *
  * - `node examples/04-dependency-injection.ts`
  *
  * In your own project:
+ *
  * - Import from "async-init" (not this relative path).
  */
 

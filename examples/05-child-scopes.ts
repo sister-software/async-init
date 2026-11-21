@@ -1,16 +1,14 @@
+// SPDX-FileCopyrightText: Sister Software
+// SPDX-License-Identifier: MIT
+
 /**
- * @license MIT
- * @author Teffen Ellis, et al.
- * @copyright Sister Software
- *
  * - Each request gets a child scope.
  * - Child scopes can use parent services.
  * - Child scopes can override (shadow) services.
  * - Disposing parent disposes children first.
  * - Abort signals flow parent -> child.
  *
- * Run from clone: `node examples/05-child-scopes.ts`
- * In your project, import from "async-init".
+ * Run from clone: `node examples/05-child-scopes.ts` In your project, import from "async-init".
  */
 
 import { createToken, ServiceRegistry } from "async-init"

@@ -1,8 +1,5 @@
-/**
- * @license MIT
- * @author Teffen Ellis, et al.
- * @copyright Sister Software
- */
+// SPDX-FileCopyrightText: Sister Software
+// SPDX-License-Identifier: MIT
 
 import { createToken, optional, type ServiceEvent, ServiceRegistry } from "async-init"
 import { describe, expect, it } from "vitest"
