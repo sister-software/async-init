@@ -201,4 +201,97 @@ describe("Service disposal", () => {
 
 		expect(seen.disposeCount).toBe(1)
 	})
+
+	it("disposes an instance that declares only the synchronous Symbol.dispose", async () => {
+		let disposeCount = 0
+
+		const service = new Service(() => ({
+			[Symbol.dispose]: (): void => {
+				disposeCount += 1
+			},
+		}))
+
+		await service
+		await service[Symbol.asyncDispose]()
+
+		expect(disposeCount).toBe(1)
+	})
+
+	it("gives the instance to the release option in place of its own disposer", async () => {
+		const released: Widget[] = []
+		const service = new Service(Widget, undefined, { release: (widget) => void released.push(widget) })
+		const widget = await service
+
+		await service[Symbol.asyncDispose]()
+
+		expect(released).toEqual([widget])
+		expect(widget.disposeCount).toBe(0)
+	})
+})
+
+describe("Service state and detach", () => {
+	it("reports idle, resolving, ready and disposed", async () => {
+		const service = new Service(Widget)
+
+		expect(service.state).toBe("idle")
+
+		const resolving = service.resolve()
+
+		expect(service.state).toBe("resolving")
+		await resolving
+		expect(service.state).toBe("ready")
+
+		await service[Symbol.asyncDispose]()
+		expect(service.state).toBe("disposed")
+	})
+
+	it("detach leaves the handle idle, builds a new instance on the next resolve, and disposes the old one on request", async () => {
+		const service = new Service(Widget)
+		const first = await service
+		const detached = service.detach()
+
+		expect(service.state).toBe("idle")
+		expect(service.instance).toBeNull()
+		expect(first.disposeCount).toBe(0)
+
+		const second = await service
+
+		expect(second).not.toBe(first)
+
+		await detached?.dispose()
+		await detached?.dispose()
+
+		expect(first.disposeCount).toBe(1)
+		expect(second.disposeCount).toBe(0)
+
+		await service[Symbol.asyncDispose]()
+		expect(second.disposeCount).toBe(1)
+	})
+
+	it("a resolution that settles after detach does not become the handle's instance", async () => {
+		const { promise: release, resolve: releaseBuild } = Promise.withResolvers<void>()
+
+		const service = new Service(async () => {
+			await release
+
+			return new Widget()
+		})
+
+		const inFlight = service.resolve()
+		const detached = service.detach()
+
+		releaseBuild()
+
+		const built = await inFlight
+
+		expect(service.state).toBe("idle")
+		expect(service.instance).toBeNull()
+
+		await detached?.dispose()
+		expect(built.disposeCount).toBe(1)
+	})
+
+	it("detach returns null before any resolution", () => {
+		expect(new Service(Widget).detach()).toBeNull()
+	})
 })

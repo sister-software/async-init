@@ -6,7 +6,14 @@
  */
 
 import { LifecycleError } from "#errors"
-import { asyncInit, isAsyncDisposable, isAsyncInitializable, isDisposed, markDisposed } from "#protocol"
+import {
+	asyncInit,
+	isAsyncDisposable,
+	isAsyncInitializable,
+	isDisposed,
+	isSyncDisposable,
+	markDisposed,
+} from "#protocol"
 import type { LifecycleContext } from "#protocol"
 
 /**
@@ -44,20 +51,71 @@ export function isServiceConstructor<T extends object>(input: unknown): input is
 }
 
 /**
+ * The lifecycle states a {@linkcode Service} handle reports.
+ */
+export const ServiceState = {
+	/**
+	 * No resolution has started, or the last one failed.
+	 */
+	Idle: "idle",
+	/**
+	 * A resolution is in flight.
+	 */
+	Resolving: "resolving",
+	/**
+	 * The handle has an instance.
+	 */
+	Ready: "ready",
+	/**
+	 * The handle was disposed and refuses a later `resolve()`.
+	 */
+	Disposed: "disposed",
+} as const
+
+export type ServiceState = (typeof ServiceState)[keyof typeof ServiceState]
+
+/**
+ * Optional behavior of a {@linkcode Service} handle.
+ */
+export interface ServiceOptions<T extends object> {
+	/**
+	 * Gives the instance back at disposal, in place of the instance's own `Symbol.asyncDispose` or `Symbol.dispose`.
+	 */
+	release?: (instance: T) => void | Promise<void>
+	/**
+	 * Pass `false` when the resolver already ran the instance's `[asyncInit]`, so the handle does not run it again.
+	 */
+	init?: boolean
+}
+
+/**
+ * An instance separated from its handle by {@linkcode Service.detach}.
+ */
+export interface DetachedInstance {
+	/**
+	 * Disposes the instance once it has resolved. Repeated calls share one disposal.
+	 */
+	dispose(): Promise<void>
+}
+
+/**
  * A lazy, awaitable, disposable handle. Awaiting the service resolves (and memoizes) the instance; disposal forwards to
- * the instance if it resolved and is disposable.
+ * the instance if it resolved and is disposable, asynchronously or synchronously.
  */
 export class Service<T extends object> implements PromiseLike<T>, AsyncDisposable {
 	#resolver: ServiceResolver<T>
 	#context: LifecycleContext
+	#options: ServiceOptions<T>
 	#promise: Promise<T> | null = null
 	#instance: T | null = null
+	#resolved = false
 	#disposed = false
 	#disposePromise: Promise<void> | null = null
 
-	constructor(resolver: ServiceResolver<T>, context?: LifecycleContext) {
+	constructor(resolver: ServiceResolver<T>, context?: LifecycleContext, options?: ServiceOptions<T>) {
 		this.#resolver = resolver
 		this.#context = context ?? { signal: new AbortController().signal }
+		this.#options = options ?? {}
 	}
 
 	/**
@@ -65,6 +123,17 @@ export class Service<T extends object> implements PromiseLike<T>, AsyncDisposabl
 	 */
 	public get instance(): T | null {
 		return this.#instance
+	}
+
+	/**
+	 * Where the handle is in its lifecycle. A failed resolution returns the handle to `idle`.
+	 */
+	public get state(): ServiceState {
+		if (this.#disposed) return ServiceState.Disposed
+
+		if (!this.#promise) return ServiceState.Idle
+
+		return this.#resolved ? ServiceState.Ready : ServiceState.Resolving
 	}
 
 	/**
@@ -76,26 +145,59 @@ export class Service<T extends object> implements PromiseLike<T>, AsyncDisposabl
 			return Promise.reject(new LifecycleError("E_DISPOSED", "The service has been disposed."))
 		}
 
-		this.#promise ??= this.#resolveUncached().then(
+		if (this.#promise) return this.#promise
+
+		// A resolution that settles after `detach()` belongs to the detached instance, so it leaves the handle alone.
+		const promise: Promise<T> = this.#resolveUncached().then(
 			(instance) => {
-				this.#instance = instance
+				if (this.#promise === promise) {
+					this.#instance = instance
+					this.#resolved = true
+				}
 
 				return instance
 			},
 			(error: unknown) => {
-				this.#promise = null
+				if (this.#promise === promise) {
+					this.#promise = null
+				}
 
 				throw error
 			}
 		)
 
-		return this.#promise
+		this.#promise = promise
+
+		return promise
+	}
+
+	/**
+	 * Separate the current instance from the handle, so the next `resolve()` builds a new one.
+	 *
+	 * The caller owns the detached instance and disposes it through the returned object, once nothing uses it. Returns
+	 * `null` when the handle has no instance or is disposed. The registry replaces a service this way while callers keep
+	 * the handle.
+	 */
+	public detach(): DetachedInstance | null {
+		const promise = this.#promise
+
+		if (!promise || this.#disposed) return null
+
+		this.#promise = null
+		this.#instance = null
+		this.#resolved = false
+
+		let disposing: Promise<void> | null = null
+
+		return {
+			dispose: () => (disposing ??= this.#releaseInstance(promise)),
+		}
 	}
 
 	async #resolveUncached(): Promise<T> {
 		const instance = await this.#instantiate()
 
-		if (isAsyncInitializable(instance)) {
+		if (this.#options.init !== false && isAsyncInitializable(instance)) {
 			await instance[asyncInit](this.#context)
 		}
 
@@ -152,9 +254,17 @@ export class Service<T extends object> implements PromiseLike<T>, AsyncDisposabl
 		return this.#disposePromise
 	}
 
-	async #disposeInstance(promise: Promise<T>): Promise<void> {
+	#disposeInstance(promise: Promise<T>): Promise<void> {
 		this.#disposed = true
 
+		return this.#releaseInstance(promise)
+	}
+
+	/**
+	 * Give one resolved instance back: through the `release` option when the handle has one, else through the instance's
+	 * `Symbol.asyncDispose`, else through its `Symbol.dispose`. A resolution that failed has no instance to release.
+	 */
+	async #releaseInstance(promise: Promise<T>): Promise<void> {
 		let instance: T
 
 		try {
@@ -163,11 +273,28 @@ export class Service<T extends object> implements PromiseLike<T>, AsyncDisposabl
 			return
 		}
 
-		if (!isAsyncDisposable(instance)) return
+		const release = this.#options.release
 
-		if (isDisposed(instance)) return
+		if (release) {
+			await release(instance)
 
-		await instance[Symbol.asyncDispose]()
-		markDisposed(instance)
+			return
+		}
+
+		if (isAsyncDisposable(instance)) {
+			if (isDisposed(instance)) return
+
+			await instance[Symbol.asyncDispose]()
+			markDisposed(instance)
+
+			return
+		}
+
+		if (isSyncDisposable(instance)) {
+			if (isDisposed(instance)) return
+
+			instance[Symbol.dispose]()
+			markDisposed(instance)
+		}
 	}
 }

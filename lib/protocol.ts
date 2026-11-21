@@ -40,6 +40,15 @@ export function isAsyncDisposable(input: unknown): input is AsyncDisposable {
 }
 
 /**
+ * Check: does `input` have synchronous `Disposable` behavior? Includes prototype chain.
+ */
+export function isSyncDisposable(input: unknown): input is Disposable {
+	if (!input || (typeof input !== "object" && typeof input !== "function")) return false
+
+	return Symbol.dispose in input && typeof (input as Disposable)[Symbol.dispose] === "function"
+}
+
+/**
  * Check: does `input` have async-init behavior? Includes prototype chain.
  */
 export function isAsyncInitializable(input: unknown): input is AsyncInitializable {

@@ -4,8 +4,8 @@
  * @copyright Sister Software
  */
 
-import { createToken, ServiceRegistry } from "async-init"
-import type { ServiceProxy, ServiceToken, TokenInstances } from "async-init"
+import { createToken, optional, ServiceRegistry } from "async-init"
+import type { NeedInstances, OptionalNeed, ServiceProxy, ServiceToken, TokenInstances } from "async-init"
 import { describe, expectTypeOf, it } from "vitest"
 
 interface Logger {
@@ -55,5 +55,44 @@ describe("registry inference", () => {
 
 		// @ts-expect-error — constructor parameter types contradict the declared dependency tokens
 		registry.register(IMismatched, Mismatched)
+	})
+})
+
+describe("definitions", () => {
+	it("maps a needs record to instances, with null for an optional need", () => {
+		expectTypeOf<NeedInstances<{ logger: ServiceToken<Logger>; path: OptionalNeed<string> }>>().toEqualTypeOf<{
+			readonly logger: Logger
+			readonly path: string | null
+		}>()
+	})
+
+	it("define() types build's needs from the declared tokens, and resolve() returns the token's type", () => {
+		const IPath = createToken<string | null>("path")
+		const ICount = createToken<number>("count")
+		const registry = new ServiceRegistry()
+
+		registry.define(ICount, {
+			needs: { logger: ILogger, path: optional(IPath) },
+			build: (needs) => {
+				expectTypeOf(needs.logger).toEqualTypeOf<Logger>()
+				expectTypeOf(needs.path).toEqualTypeOf<string | null>()
+
+				return needs.logger.level
+			},
+			release: (count) => {
+				expectTypeOf(count).toEqualTypeOf<number>()
+			},
+		})
+
+		expectTypeOf(registry.resolve(IPath)).resolves.toEqualTypeOf<string | null>()
+	})
+
+	// oxlint-disable-next-line vitest/expect-expect -- Type-level test, no runtime expectation needed.
+	it("define() rejects a build whose value contradicts the token", () => {
+		const ICount = createToken<number>("count")
+		const registry = new ServiceRegistry()
+
+		// @ts-expect-error — the token is a number and the build returns a string
+		registry.define(ICount, { build: () => "three" })
 	})
 })

@@ -15,3 +15,4 @@ The examples import from the repo root (`../index.ts`) so they run from a fresh 
 | [03-registry.ts](./03-registry.ts)                         | Tokens (interface-typed services without classes), `register`/`get`, LIFO disposal via `await using registry`     |
 | [04-dependency-injection.ts](./04-dependency-injection.ts) | Static `dependencies` tuples, init-before-construct, transitive resolution, typed `E_MISSING_DEPENDENCY` failures |
 | [05-child-scopes.ts](./05-child-scopes.ts)                 | The per-request pattern: parent fallback, scoped shadowing, LIFO child teardown, abort chaining                   |
+| [06-definitions.ts](./06-definitions.ts)                   | `define` with declared needs, optional needs, `graph`, `invalidate` under a running request, `subscribe` events   |

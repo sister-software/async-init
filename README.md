@@ -167,14 +167,105 @@ fromChild.value // 'from-child' — shadowed
 fromParent.value // 'from-parent' — untouched
 ```
 
+### Definitions
+
+`define()` registers a factory together with the tokens it needs. The needs are data, so the registry can read the dependency graph without building anything. `build` may return any value, including a string or `null`, and `resolve()` reads it.
+
+```ts
+import { createToken, optional, ServiceRegistry } from "async-init"
+
+interface Database {
+	query(sql: string): string
+}
+
+interface Cache {
+	get(key: string): string | null
+}
+
+const IDataPath = createToken<string>("data-path")
+const IDatabase = createToken<Database>("database")
+const ICache = createToken<Cache>("cache")
+const ISearch = createToken<{ find(term: string): string }>("search")
+
+await using registry = new ServiceRegistry()
+
+registry.define(IDataPath, { build: () => "/var/data" })
+
+registry.define(IDatabase, {
+	needs: { path: IDataPath },
+	build: ({ path }): Database => ({ query: (sql) => `${path}: ${sql}` }),
+	release: (database) => console.log("closed", database),
+})
+
+registry.define(ISearch, {
+	// An optional need is null when its token is unregistered or its service fails to build.
+	needs: { database: IDatabase, cache: optional(ICache) },
+	build: ({ database, cache }) => ({
+		find: (term) => cache?.get(term) ?? database.query(term),
+	}),
+})
+
+const search = await registry.resolve(ISearch)
+```
+
+- **Needs** resolve in parallel before `build` runs. A definition that would complete a cycle throws `E_DEPENDENCY_CYCLE` when it is defined.
+- **Release** gives the value back at disposal. Without it, the registry calls the value's `Symbol.asyncDispose`, or its synchronous `Symbol.dispose`.
+- **Disposal order** follows the graph: a service is disposed after every service built from it.
+- **Wrapping:** a child's definition that needs its own token receives the parent's service, so a child can wrap what it shadows.
+
+### The graph
+
+`registry.graph()` lists every service the registry can resolve, with its declared needs, whether each need is registered, its state, and the error of a failed build. It builds nothing.
+
+```ts
+for (const node of registry.graph()) {
+	console.log(
+		node.token.description,
+		node.state,
+		node.needs.map((need) => need.key)
+	)
+}
+```
+
+### Replacing a service
+
+`invalidate(token)` replaces a service and every service that declares a need on it. Handles stay valid: the next resolution builds new instances.
+
+A child registry keeps what it read. Once a child resolves a parent's service with `resolve()`, later reads through that child return the same instance, and the instance stays open until the child is disposed. A registry per request therefore reads one consistent set of instances while the parent reloads.
+
+```ts
+const request = registry.createChild()
+const search = await request.resolve(ISearch)
+
+await registry.invalidate(IDatabase, "new data")
+
+// `search` still reads the database it started with.
+// A child created now builds a new database and a new search.
+
+await request.dispose() // the old search and the old database are disposed here
+```
+
+Invalidation follows declared needs only. A service registered as a plain factory keeps the instance it read.
+
+### Events
+
+`subscribe()` reports each build, failure, invalidation and disposal. A build's `durationMs` covers the service's own work and excludes the wait for its needs.
+
+```ts
+using subscription = registry.subscribe((event) => {
+	if (event.type === "resolve-end") console.log(event.token.description, event.durationMs)
+})
+```
+
 ## Examples
 
 See [`examples/`](./examples/) for runnable examples. From a clone, run `node examples/<file>.ts`.
 
 ## Limitations
 
-- **Dependency cycles:** Declared constructor cycles throw `E_DEPENDENCY_CYCLE` with the path. Cycles through factories are not detected and can deadlock. Break those by passing a `Service` handle and awaiting it after construction.
-- **Async only:** There is no synchronous `Disposable` or `init` equivalent in v1.
+- **Dependency cycles:** Cycles of declared needs throw `E_DEPENDENCY_CYCLE` with the path: at `define()` for a definition, and at first resolution for a class with a `dependencies` tuple. Cycles through plain factories are not detected and can deadlock. Break those by passing a `Service` handle and awaiting it after construction.
+- **Initialization is async only:** There is no synchronous `init` equivalent. Disposal accepts both `Symbol.asyncDispose` and `Symbol.dispose`.
+- **Holding across an invalidation:** Only a child registry's `resolve()` keeps an invalidated instance open. An instance read from the owning registry, or through a `get()` handle, is disposed as soon as nothing built from it remains.
 - **Proxies:** Unknown and symbol-keyed properties return async wrappers. Synchronous protocols such as iteration and inspection can break. The names `then`, `resolve`, and `instance` belong to the handle and shadow instance members.
 - **Disposal guards:** `Service` skips already-marked instances and marks them after successful cleanup. Direct calls or concurrent disposal through separate handles may need their own guard. Marking before cleanup prevents concurrent calls, but a failure stays marked and cannot be retried. Marking after cleanup permits retries, but alone does not prevent concurrent calls.
 
