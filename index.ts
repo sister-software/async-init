@@ -4,6 +4,7 @@
  * @copyright Sister Software
  */
 
+export * from "./lib/definition.ts"
 export * from "./lib/errors.ts"
 export * from "./lib/protocol.ts"
 export * from "./lib/proxy.ts"
