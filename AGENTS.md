@@ -6,7 +6,7 @@
 
 ## Build, Test, and Development Commands
 
-Use the repository's Yarn 4 release and a Node version supported by `package.json` (`^24.22.1` or `>=26.12.1`). Run `yarn install` to install dependencies.
+Use the repository's Yarn 4 release and a Node version supported by `package.json` (`^24.22.3` or `>=26.13.1`). Run `yarn install` to install dependencies.
 
 - `yarn compile` builds JavaScript and declarations into `out/`.
 - `yarn check-types` runs the TypeScript build check.
